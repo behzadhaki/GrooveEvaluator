@@ -17,7 +17,7 @@ from hvo_sequence.hvo_seq import HVO_Sequence
 import warnings
 warnings.filterwarnings("ignore")
 
-from drum_set_eval.feature_extractor import Feature_Extractor_From_HVO_Set, Interset_Distance_Calculator, Intraset_Distance_Calculator, Distance_to_PDF_Converter, convert_distances_dict_to_pdf_histograms_dict
+from GrooveEvaluator.feature_extractor import Feature_Extractor_From_HVO_Set, Interset_Distance_Calculator, Intraset_Distance_Calculator, Distance_to_PDF_Converter, convert_distances_dict_to_pdf_histograms_dict
 
 filters = {
     "drummer": None,  # ["drummer1", ..., and/or "session9"]
