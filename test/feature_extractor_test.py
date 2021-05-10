@@ -8,13 +8,13 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import KernelDensity
 import seaborn as sns
 from bokeh.io import output_file, show
-from bokeh.layouts import layout
+from bokeh.layouts import layout, grid
 
 import sys
 sys.path.insert(1, "../../hvo_sequence")
 sys.path.insert(1, "../hvo_sequence")
 
-from GrooveEvaluator.plotting_utils import multi_set_plotter
+from GrooveEvaluator.plotting_utils import multi_feature_plotter
 
 from hvo_sequence.hvo_seq import HVO_Sequence
 
@@ -28,7 +28,7 @@ filters = {
     "session": None,  # ["session1", "session2", and/or "session3"]
     "loop_id": None,
     "master_id": None,
-    "style_primary": None,  # [funk, latin, jazz, rock, gospel, punk, hiphop, pop, soul, neworleans, afrobeat]
+    "style_primary": None,  # ["afrobeat", "afrocuban", "blues", "country", "dance", "funk", "gospel", "highlife", "hiphop", "jazz","latin", "middleeastern", "neworleans", "pop", "punk", "reggae", "rock", "soul"]
     # "style_secondary" None,       # [fast, brazilian_baiao, funk, halftime, purdieshuffle, None, samba, chacarera, bomba, brazilian, brazilian_sambareggae, brazilian_samba, venezuelan_joropo, brazilian_frevo, fusion, motownsoft]
     "bpm": None,  # [(range_0_lower_bound, range_0_upper_bound), ..., (range_n_lower_bound, range_n_upper_bound)]
     "beat_type": ["beat"],  # ["beat" or "fill"]
@@ -37,7 +37,8 @@ filters = {
     "full_audio_filename": None  # list_of full_audio_filename
 }
 
-# Styles_complete = [afrobeat, afrocuban, blues, country, dance, funk, gospel, highlife, hiphop, jazz, latin, middleeastern, neworleans, pop, punk, reggae, rock, soul]
+Styles_complete = ["afrobeat", "afrocuban", "blues", "country", "dance", "funk", "gospel", "highlife", "hiphop", "jazz",
+                   "latin", "middleeastern", "neworleans", "pop", "punk", "reggae", "rock", "soul"]
 
 
 def check_if_passes_filters(df_row, filters):
@@ -49,7 +50,6 @@ def check_if_passes_filters(df_row, filters):
             else:
                 meets_filter.append(False)
     return all(meets_filter)
-
 
 class GrooveMidiDataset(Dataset):
     def __init__(
@@ -93,34 +93,28 @@ class GrooveMidiDataset(Dataset):
     def __getitem__(self, idx):
         return self.hvo_sequences[idx].hvo, idx
 
+feature_extractors_list_test = []
 
-# Filters for grabbing subsets of the dataset
-filters_rock = deepcopy(filters)
-filters_rock["style_primary"] = ["rock"]
-filters_funk = deepcopy(filters)
-filters_funk["style_primary"] = ["funk"]
-filters_punk = deepcopy(filters)
-filters_punk["style_primary"] = ["punk"]
+set_ = "test"
+for style in Styles_complete[:6]:
+    # Create a filter for style
+    filters_for_style = deepcopy(filters)
+    filters_for_style["style_primary"] = [style]
+    # Load style subset of the GrooveMIDI set
+    torch_set = GrooveMidiDataset(filters=filters_for_style, subset="GrooveMIDI_processed_{}".format(set_))
+    gmd = GrooveMidiDataset(filters=filters_for_style)
+    if len(gmd.hvo_sequences) > 0:
+        feature_extractors_list_test.append(Feature_Extractor_From_HVO_Set(
+            gmd.hvo_sequences, name="{}".format(style))
+        )
 
-# Load Rock and Funk subsets of the GrooveMIDI set
-test_set = GrooveMidiDataset(filters=filters_rock)
-test_set_funk = GrooveMidiDataset(filters=filters_funk)
 
-# Create two Feature Extractor Instances for Rock and Funk
-rock_set_feature_extractor = Feature_Extractor_From_HVO_Set(
-    GrooveMidiDataset(filters=filters_rock).hvo_sequences, name="rock")
-funk_set_feature_extractor = Feature_Extractor_From_HVO_Set(
-    GrooveMidiDataset(filters=filters_funk).hvo_sequences, name="funk")
-punk_set_feature_extractor = Feature_Extractor_From_HVO_Set(
-    GrooveMidiDataset(filters=filters_punk).hvo_sequences, name="punk")
 
-#test_set_feature_extractor.extract()
-
-feature_extractors_list = [rock_set_feature_extractor, funk_set_feature_extractor, punk_set_feature_extractor]
-
+# todo add normalized versions to plots
 output_file("combined.html")
-p = multi_set_plotter(feature_extractors_list = feature_extractors_list,
-                  filename_prefix_path = "ridgeplot_", force_extract=False,
-                  plot_width = 1200, legend_fnt_size="12px", scale_y=False, resolution=1000)
+p = multi_feature_plotter(feature_extractors_list = feature_extractors_list_test,
+                        title_prefix = "{}_set".format(set_), force_extract=False,
+                        plot_width = 650, plot_height = 800,
+                        legend_fnt_size="8px", scale_y=False, resolution=200)
 
-show(layout(p))
+show(grid(p, ncols=3))

@@ -4,6 +4,7 @@ from sklearn.neighbors import KernelDensity
 from scipy.stats import  gaussian_kde
 from scipy import stats, integrate
 from GrooveEvaluator.settings import FEATURES_TO_EXTRACT
+import functools
 
 import sklearn
 from bokeh.io import output_file, show
@@ -353,7 +354,6 @@ def convert_distances_dict_to_gaussian_pdfs(distances_dict):
                 distances_for_feat, bins="scott",
                 density=True
             )
-
 
 def convert_distances_dict_to_pdf_histograms_dict (distances_dict):
     distances_histograms = dict()
