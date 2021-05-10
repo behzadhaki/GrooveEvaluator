@@ -3,52 +3,17 @@ from tqdm import tqdm
 from sklearn.neighbors import KernelDensity
 from scipy.stats import  gaussian_kde
 from scipy import stats, integrate
+from GrooveEvaluator.settings import FEATURES_TO_EXTRACT
+
 import sklearn
-
-available_features_in_HVO_Sequence = [
-    # GrooveToolbox.RhythmFeatures
-    # features implemented in Hvo_Sequence.__version__ = 0.1.0
-    # --------------------------------------
-    "combined_syncopation",
-    "polyphonic_syncopation",
-    "low_syncopation",
-    "mid_syncopation",
-    "high_syncopation",
-    "low_density",
-    "mid_density",
-    "high_density",
-    "total_density",
-    "hiness",
-    "midness",
-    "lowness",
-    "hisyncness",
-    "midsyncness",
-    "lowsyncness",
-    "total_autocorrelation_curve",             # SUPER SLOW!!!!
-    "autocorrelation_skew",
-    "autocorrelation_max_amplitude",
-    "autocorrelation_centroid",
-    "autocorrelation_harmonicity",
-    "total_symmetry",
-    "total_average_intensity",
-    "total_weak_to_strong_ratio",
-    "total_complexity",
-
-    # GrooveToolbox.MicrotimingFeatures
-    # implemented in Hvo_Sequence.__version__ = 0.1.0
-    # --------------------------------------
-    "swingness",
-    "is_swung",
-    "laidbackness",
-    "timing_accuracy",
-]
+from bokeh.io import output_file, show
 
 class Feature_Extractor_From_HVO_Set:
 
     def __init__(
             self,
             hvo_dataset,
-            feature_list_to_extract=[None],            # Extracts all if [None]
+            features_to_extract=FEATURES_TO_EXTRACT,
             name=None
     ):
         """
@@ -56,57 +21,243 @@ class Feature_Extractor_From_HVO_Set:
         (compatible with HVO_Sequence Version >= 0.1.0)
 
         :param hvo_dataset:                 List of HVO_Sequences
-        :param feature_list_to_extract:     List of features (for which extractors are implemented in hvo_sequence)
+        :param features_to_extract:         Dictionary of features (for which extractors are implemented in hvo_sequence)
+                                            Must be formatted same way as GrooveEvaluator.settings.FEATURES_TO_EXTRACT
         :param name:                        Name of dataset
         """
+
+        self.__name = name
 
         # Add the dataset to self
         self.hvo_dataset = hvo_dataset
 
-        # If no specific features specified, make sure all features are extracted
-        if feature_list_to_extract == [None]:
-            self.feature_list_to_extract = available_features_in_HVO_Sequence
-        else:
-            self.feature_list_to_extract = feature_list_to_extract
+        self.features_to_extract = FEATURES_TO_EXTRACT
 
+        # __extracted_features is a dictionary with same structure as FEATURES_TO_EXTRACT dict
+        # the extracted features will be stored here upon calling the extract() method
         self.__extracted_features = None
-        self.name = name
+
+    @property
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, name_):
+        self.__name = name_
 
     @property
     def extracted_features(self):
         # If extract() hasn't been called previously, do so to extract features
         # If features extracted, No need to do so anymore
-        if self.__extracted_features is None:
-            self.extract()
+        """if self.__extracted_features is None:
+            self.extract()"""
         return self.__extracted_features
 
-    def get_features_for_sample(self, sample_ix):
-        sample_hvo = self.hvo_dataset[sample_ix]
-        feature_dict = sample_hvo.get_analysis_features(feature_list=self.feature_list_to_extract)
-        return feature_dict
+    def extract(self, use_tqdm=True, force_extract=False):
 
-    def extract(self, use_tqdm=True):
+        should_extract = [False]
+        if self.extracted_features is None:
+            should_extract.append(True)
+            self.__extracted_features = self.get_empty_extracted_features_dict(self.features_to_extract)
 
-        # Create an empty dictionary with required fields
-        extracted_set = {}
-        for feature in self.feature_list_to_extract:
-            extracted_set[feature] = np.array([])
+        if force_extract is True:
+            should_extract.append(True)
 
-        if use_tqdm:
-            for ix in tqdm(range(len(self.hvo_dataset)), desc="Extracting Features from HVO_Sequence Set"):
-                sample_hvo = self.hvo_dataset[ix]
-                feature_dict = sample_hvo.get_analysis_features(feature_list=self.feature_list_to_extract)
-                """for feature in self.feature_list_to_extract:
-                    extracted_set[feature] = np.append(extracted_set[feature], feature_dict[feature])"""
-        else:
-            for ix in range(len(self.hvo_dataset)):
-                sample_hvo = self.hvo_dataset[ix]
-                feature_dict = sample_hvo.get_analysis_features(feature_list=self.feature_list_to_extract)
-                for feature in #self.feature_list_to_extract:
-                    extracted_set[feature] = np.append(extracted_set[feature], feature_dict[feature])
+        if any(should_extract):
+            if use_tqdm:
+                for ix in tqdm(range(len(self.hvo_dataset)), desc="Extracting Features from HVO_Sequence Set"):
+                    sample_hvo = self.hvo_dataset[ix]
+                    self.update_statistical_features(sample_hvo)
+                    self.update_syncopation_features(sample_hvo)
+                    self.update_autocorrelation_features(sample_hvo)
+                    self.update_microtiming_features(sample_hvo)
 
-        self.__extracted_features = extracted_set
-        return extracted_set
+            else:
+                for ix in range(len(self.hvo_dataset)):
+                    sample_hvo = self.hvo_dataset[ix]
+                    self.update_statistical_features(sample_hvo)
+                    self.update_syncopation_features(sample_hvo)
+                    self.update_autocorrelation_features(sample_hvo)
+                    self.update_microtiming_features(sample_hvo)
+
+    def update_statistical_features(self, sample_hvo):
+
+        statistical_keys = self.__extracted_features["Statistical"].keys()
+
+        if "NoI" in statistical_keys:
+            self.__extracted_features["Statistical"]["NoI"] = np.append(
+                self.__extracted_features["Statistical"]["NoI"],
+                sample_hvo.get_number_of_active_voices()
+            )
+
+        if "Total Step Density" in statistical_keys:
+            self.__extracted_features["Statistical"]["Total Step Density"] = np.append(
+                self.__extracted_features["Statistical"]["Total Step Density"],
+                sample_hvo.get_total_step_density()
+            )
+
+        if "Avg Voice Density" in statistical_keys:
+            self.__extracted_features["Statistical"]["Avg Voice Density"] = np.append(
+                self.__extracted_features["Statistical"]["Avg Voice Density"],
+                sample_hvo.get_average_voice_density()
+            )
+
+        if any(x in statistical_keys for x in ["Lowness", "Midness", "Hiness"]):
+            lowness, midness, hiness = sample_hvo.get_lowness_midness_hiness()
+            if "Lowness" in statistical_keys:
+                self.__extracted_features["Statistical"]["Lowness"] = np.append(
+                    self.__extracted_features["Statistical"]["Lowness"],
+                    lowness
+                )
+            if "Midness" in statistical_keys:
+                self.__extracted_features["Statistical"]["Midness"] = np.append(
+                    self.__extracted_features["Statistical"]["Midness"],
+                    midness
+                )
+            if "Hiness" in statistical_keys:
+                self.__extracted_features["Statistical"]["Hiness"] = np.append(
+                    self.__extracted_features["Statistical"]["Hiness"],
+                    hiness
+                )
+
+        if "Vel Similarity Score" in statistical_keys:
+            self.__extracted_features["Statistical"]["Vel Similarity Score"] = np.append(
+                self.__extracted_features["Statistical"]["Vel Similarity Score"],
+                sample_hvo.get_velocity_score_symmetry()
+            )
+
+        if "Weak to Strong Ratio" in statistical_keys:
+            self.__extracted_features["Statistical"]["Weak to Strong Ratio"] = np.append(
+                self.__extracted_features["Statistical"]["Weak to Strong Ratio"],
+                sample_hvo.get_total_weak_to_strong_ratio()
+            )
+
+        if any(x in statistical_keys for x in ["Poly Velocity Mean", "Poly Velocity std"]):
+            mean, std = sample_hvo.get_polyphonic_velocity_mean_stdev()
+            if "Poly Velocity Mean" in statistical_keys:
+                self.__extracted_features["Statistical"]["Poly Velocity Mean"] = np.append(
+                    self.__extracted_features["Statistical"]["Poly Velocity Mean"],
+                    mean
+                )
+            if "Poly Velocity std" in statistical_keys:
+                self.__extracted_features["Statistical"]["Poly Velocity std"] = np.append(
+                    self.__extracted_features["Statistical"]["Poly Velocity std"],
+                    std
+                )
+
+        if any(x in statistical_keys for x in ["Poly Offset Mean", "Poly Offset std"]):
+            mean, std = sample_hvo.get_polyphonic_offset_mean_stdev()
+            if "Poly Offset Mean" in statistical_keys:
+                self.__extracted_features["Statistical"]["Poly Offset Mean"] = np.append(
+                    self.__extracted_features["Statistical"]["Poly Offset Mean"],
+                    mean
+                )
+            if "Poly Offset std" in statistical_keys:
+                self.__extracted_features["Statistical"]["Poly Offset std"] = np.append(
+                    self.__extracted_features["Statistical"]["Poly Offset std"],
+                    std
+                )
+
+    def update_syncopation_features(self, sample_hvo):
+        sync_keys = self.__extracted_features["Syncopation"].keys()
+
+        if "Combined" in sync_keys:
+            self.__extracted_features["Syncopation"]["Combined"] = np.append(
+                self.__extracted_features["Syncopation"]["Combined"],
+                sample_hvo.get_combined_syncopation()
+            )
+
+        if "Polyphonic" in sync_keys:
+            self.__extracted_features["Syncopation"]["Polyphonic"] = np.append(
+                self.__extracted_features["Syncopation"]["Polyphonic"],
+                sample_hvo.get_witek_polyphonic_syncopation()
+            )
+
+        if any(shared_feats in sync_keys for shared_feats in ["Lowsync", "Midsync", "Hisync",
+                                                                       "Lowsyness", "Midsyness", "Hisyness"]):
+
+            lmh_sync_info = sample_hvo.get_low_mid_hi_syncopation_info()
+
+            for feat in ["Lowsync", "Midsync", "Hisync", "Lowsyness", "Midsyness", "Hisyness"]:
+                if feat in sync_keys:
+                    self.__extracted_features["Syncopation"][feat] = np.append(
+                        self.__extracted_features["Syncopation"][feat],
+                        lmh_sync_info[feat.lower()]
+                    )
+
+        if "Complexity" in sync_keys:
+            self.__extracted_features["Syncopation"]["Complexity"] = np.append(
+                self.__extracted_features["Syncopation"]["Complexity"],
+                sample_hvo.get_total_complexity()
+            )
+
+    def update_autocorrelation_features(self, sample_hvo):
+        autocorrelation_keys = self.__extracted_features["Auto-Correlation"].keys()
+
+        if any(shared_feats in autocorrelation_keys for shared_feats in [
+            "Skewness", "Max", "Centroid", "Harmonicity"]
+               ):
+            autocorrelation_features = sample_hvo.get_velocity_autocorrelation_features()
+
+            for feat in ["Skewness", "Max", "Centroid", "Harmonicity"]:
+                if feat in autocorrelation_keys:
+                    self.__extracted_features["Auto-Correlation"][feat] = np.append(
+                        self.__extracted_features["Auto-Correlation"][feat],
+                        autocorrelation_features[feat.lower()]
+                    )
+
+    def update_microtiming_features(self, sample_hvo):
+        microtiming_keys = self.__extracted_features["Micro-Timing"].keys()
+
+        if "Swingness" in microtiming_keys:
+            self.__extracted_features["Micro-Timing"]["Swingness"] = np.append(
+                self.__extracted_features["Micro-Timing"]["Swingness"],
+                sample_hvo.swingness()
+            )
+
+        if "Laidbackness" in microtiming_keys:
+            self.__extracted_features["Micro-Timing"]["Laidbackness"] = np.append(
+                self.__extracted_features["Micro-Timing"]["Laidbackness"],
+                sample_hvo.laidbackness()
+            )
+
+        if "Accuracy" in microtiming_keys:
+            self.__extracted_features["Micro-Timing"]["Accuracy"] = np.append(
+                self.__extracted_features["Micro-Timing"]["Accuracy"],
+                sample_hvo.get_timing_accuracy()
+            )
+
+    def get_empty_extracted_features_dict(self, _features_to_extract):
+        # Create a new dictionary with same structure as _features_to_extract
+        # Initialize to an empty np array and remove non required features
+        extracted_features = \
+            {
+                type_key:
+                    {
+                        feat_key: np.array([], dtype=np.float16) for feat_key in _features_to_extract[type_key].keys()
+                    } for type_key in _features_to_extract.keys()
+            }
+
+        for type in _features_to_extract.keys():
+            for feat in _features_to_extract[type].keys():
+                if _features_to_extract[type][feat] is not True:
+                    extracted_features[type].pop(feat)
+
+        return extracted_features
+
+    def get_major_minor_field_keys(self):
+        # returns top level and specific feature levels
+        # exp:  major   ["statistical", "micro-timing"]
+        #       minor   ["noi", "lowness", "swing"]
+        major_keys = list()
+        minor_keys = list()
+
+        for major_key in self.features_to_extract.keys():
+            major_keys.append(major_key)
+            for minor_key in self.features_to_extract[major_key].keys():
+                minor_keys.append(minor_key)
+
+        return list(set(major_keys)), list(set(minor_keys))
 
 
 class Intraset_Distance_Calculator:
@@ -203,19 +354,18 @@ def convert_distances_dict_to_gaussian_pdfs(distances_dict):
                 density=True
             )
 
+
 def convert_distances_dict_to_pdf_histograms_dict (distances_dict):
     distances_histograms = dict()
     for feature in distances_dict.keys():
         # Find number of bins using Scott's Rule of Thumb
         # https://en.wikipedia.org/wiki/Histogram#Scott's_normal_reference_rule
         distances_for_feat = distances_dict[feature]
-        #print("distances_for_feat", distances_for_feat)
         if np.count_nonzero(distances_for_feat) > 0:
             hist, bin_edges = np.histogram(
                 distances_for_feat, bins="scott",
                 density=True
             )
-            print("mean, std in feature ", feature, np.mean(distances_for_feat), np.std(distances_for_feat))
             distances_histograms.update({feature: (hist, bin_edges)})
     return distances_histograms
 
@@ -248,7 +398,7 @@ class Distance_to_PDF_Converter:
             self.interset_distances_per_features)
         return self.__intraset_pdfs_per_features, self.__interset_pdfs_per_features
 
-
+"""
 
 def c_dist(A, B, mode='None', normalize=0):
     c_dist = np.zeros(len(B))
@@ -277,3 +427,4 @@ def c_dist(A, B, mode='None', normalize=0):
             c_dist[i] = stats.entropy(A_, B_)
     return c_dist
 
+"""

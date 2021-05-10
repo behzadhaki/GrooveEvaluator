@@ -7,14 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KernelDensity
 import seaborn as sns
-from bokeh.io import output_file, show
-from bokeh.layouts import layout
 
 import sys
 sys.path.insert(1, "../../hvo_sequence")
 sys.path.insert(1, "../hvo_sequence")
-
-from GrooveEvaluator.plotting_utils import multi_set_plotter
 
 from hvo_sequence.hvo_seq import HVO_Sequence
 
@@ -68,7 +64,6 @@ class GrooveMidiDataset(Dataset):
         metadata = pd.read_csv(os.path.join(source_path, subset, metadata_csv_filename))
 
         self.hvo_sequences = []
-
         for ix, hvo_seq in enumerate(train_set):
             if len(hvo_seq.time_signatures) == 1:       # ignore if time_signature change happens
                 all_zeros = not np.any(hvo_seq.hvo.flatten())
@@ -91,36 +86,69 @@ class GrooveMidiDataset(Dataset):
         return len(self.hvo_sequences)
 
     def __getitem__(self, idx):
-        return self.hvo_sequences[idx].hvo, idx
+        return self.hvo_sequences.hvo, idx
 
 
 # Filters for grabbing subsets of the dataset
 filters_rock = deepcopy(filters)
 filters_rock["style_primary"] = ["rock"]
 filters_funk = deepcopy(filters)
-filters_funk["style_primary"] = ["funk"]
-filters_punk = deepcopy(filters)
-filters_punk["style_primary"] = ["punk"]
+filters_funk["style_primary"] = ["afrobeat"]
 
 # Load Rock and Funk subsets of the GrooveMIDI set
 test_set = GrooveMidiDataset(filters=filters_rock)
 test_set_funk = GrooveMidiDataset(filters=filters_funk)
 
 # Create two Feature Extractor Instances for Rock and Funk
-rock_set_feature_extractor = Feature_Extractor_From_HVO_Set(
-    GrooveMidiDataset(filters=filters_rock).hvo_sequences, name="rock")
+test_set_feature_extractor = Feature_Extractor_From_HVO_Set(
+    test_set.hvo_sequences, feature_list_to_extract=[None], name="test_set_groundT")
+
 funk_set_feature_extractor = Feature_Extractor_From_HVO_Set(
-    GrooveMidiDataset(filters=filters_funk).hvo_sequences, name="funk")
-punk_set_feature_extractor = Feature_Extractor_From_HVO_Set(
-    GrooveMidiDataset(filters=filters_punk).hvo_sequences, name="punk")
+    test_set_funk.hvo_sequences, feature_list_to_extract=[None], name="funk_groundT")
 
-#test_set_feature_extractor.extract()
+"""# Calculate Interset Distances for Rock
+test_set_intraset_distances = Intraset_Distance_Calculator(
+    test_set_feature_extractor.extracted_features, name=test_set_feature_extractor.name).intraset_distances_per_feat"""
+#funk_intraset_distances = Intraset_Distance_Calculator(
+#    funk_set_feature_extractor.extracted_features, name=funk_set_feature_extractor.name).intraset_distances_per_feat
+"""
 
-feature_extractors_list = [rock_set_feature_extractor, funk_set_feature_extractor, punk_set_feature_extractor]
+# Calculate Intraset Distances between Rock and Funk
+interset_distances = Interset_Distance_Calculator(
+    test_set_feature_extractor.extracted_features, funk_set_feature_extractor.extracted_features,
+    name_a=test_set_feature_extractor.name, name_b=funk_set_feature_extractor.name).interset_distances_per_feat
 
-output_file("combined.html")
-p = multi_set_plotter(feature_extractors_list = feature_extractors_list,
-                  filename_prefix_path = "ridgeplot_", force_extract=False,
-                  plot_width = 1200, legend_fnt_size="12px", scale_y=False, resolution=1000)
+# convert_distances_dict_to_pdf_histograms_dict
+test_set_intraset_pdf = convert_distances_dict_to_pdf_histograms_dict(test_set_intraset_distances)
+funk_intraset_pdf = convert_distances_dict_to_pdf_histograms_dict(funk_intraset_distances)
+interset_pdf = convert_distances_dict_to_pdf_histograms_dict(interset_distances)
 
-show(layout(p))
+plot_set = funk_intraset_pdf
+for key in plot_set.keys():
+    # key = list(intraset_pdfs_rock.keys())[1]
+    
+    pdf, bins = plot_set[key]
+    print(bins)
+    width = (bins[1] - bins[0])
+    center = (bins[:-1] + bins[1:]) / 2
+    plt.bar(center, pdf, align='center', width=width)
+    plt.plot(bins[:-1], pdf)
+    plt.title(key)
+    plt.show()"""
+
+"""for feature in funk_intraset_distances.keys():
+    # Find kernel bandwidth using Scott's Rule of Thumb
+    # https://en.wikipedia.org/wiki/Histogram#Scott's_normal_reference_rule
+    distances_in_feat = funk_intraset_distances[feature].flatten()
+    sns.kdeplot(distances_in_feat)
+    plt.title(feature)
+    plt.show()"""
+
+extracted_set = funk_set_feature_extractor.extract()
+for feature in extracted_set.keys():
+    # Find kernel bandwidth using Scott's Rule of Thumb
+    # https://en.wikipedia.org/wiki/Histogram#Scott's_normal_reference_rule
+    distances_in_feat = extracted_set[feature].flatten()
+    sns.kdeplot(distances_in_feat)
+    plt.title(feature)
+    plt.show()
