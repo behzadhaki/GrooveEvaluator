@@ -96,7 +96,7 @@ class GrooveMidiDataset(Dataset):
 feature_extractors_list_test = []
 
 set_ = "test"
-for style in Styles_complete[:6]:
+for style in Styles_complete:
     # Create a filter for style
     filters_for_style = deepcopy(filters)
     filters_for_style["style_primary"] = [style]
@@ -112,9 +112,12 @@ for style in Styles_complete[:6]:
 
 # todo add normalized versions to plots
 output_file("combined.html")
-p = multi_feature_plotter(feature_extractors_list = feature_extractors_list_test,
-                        title_prefix = "{}_set".format(set_), force_extract=False,
-                        plot_width = 650, plot_height = 800,
-                        legend_fnt_size="8px", scale_y=False, resolution=200)
+p = multi_feature_plotter(feature_extractors_list=feature_extractors_list_test,
+                          title_prefix="{}_set".format(set_),
+                          normalize_data=False,
+                          analyze_combined_sets=True,
+                          force_extract=False,
+                          plot_width=650, plot_height=600,
+                          legend_fnt_size="8px", scale_y=False, resolution=200)
 
 show(grid(p, ncols=3))

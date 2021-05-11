@@ -16,9 +16,9 @@ from bokeh.layouts import layout
 import numpy as np
 
 
-def multi_feature_plotter(feature_extractors_list, title_prefix="ridgeplot", force_extract=False,
-                      plot_width=800, plot_height=1200, legend_fnt_size="8px",
-                      scale_y=True, resolution=1000, plot_with_complement=False):
+def multi_feature_plotter(feature_extractors_list, title_prefix="ridgeplot", normalize_data=False, analyze_combined_sets=True,
+                          force_extract=False, plot_width=800, plot_height=1200, legend_fnt_size="8px",
+                          scale_y=True, resolution=1000, plot_with_complement=False):
 
     # Extract features if not done already or force_extract required
     # also get the major/minor features available in the feature set
@@ -41,10 +41,15 @@ def multi_feature_plotter(feature_extractors_list, title_prefix="ridgeplot", for
 
     figure_layout = []
 
+    title = ""
+
     # Each bokeh figure will show a single features value across all sets (accessible via feature_extractors_list)
     for maj_key in feat_major_fields:
 
         for minor_key in feat_minor_fields:
+
+            title = "{}::{}::{}".format(title_prefix, maj_key, minor_key)
+
             data_list = list()
             tags = list()
             for i in range(number_of_sets):
@@ -52,10 +57,22 @@ def multi_feature_plotter(feature_extractors_list, title_prefix="ridgeplot", for
                     data_for_feature = feature_extractors_list[i].extracted_features[maj_key][minor_key]
                     data_for_feature = np.where(np.isnan(data_for_feature), 0, data_for_feature)
                     data_for_feature = np.where(np.isinf(data_for_feature), 0, data_for_feature)
+                    if data_for_feature.std()>0 and normalize_data is True:
+                        data_for_feature = (data_for_feature - data_for_feature.mean())/data_for_feature.std()
                     data_list.append(data_for_feature)
                     tags.append("{} ".format(feature_extractors_list[i].name))
-                    title = "{}::{}::{}".format(title_prefix, maj_key, minor_key)
-            if len(data_list) > 1:
+
+
+            # if requested to add another analysis containing all sets mixed together
+            if analyze_combined_sets is True and len(data_list)>=1:
+                combined_set = np.array([])
+                for x in data_list:
+                    if x.size >= 1:
+                        combined_set = np.append(combined_set, x).flatten()
+                data_list.append(np.array(combined_set).flatten())
+                tags.append("{} ".format("Combined"))
+
+            if len(data_list) >= 1:
                 if plot_with_complement is True:
                     figure_layout.append(
                         ridge_kde_multi_feature_with_complement_set(
@@ -75,6 +92,7 @@ def multi_feature_plotter(feature_extractors_list, title_prefix="ridgeplot", for
                     )
 
     return figure_layout
+
 
 def ridge_kde_multi_feature_with_complement_set(tags, data_list,
                                             title="",
@@ -123,8 +141,10 @@ def ridge_kde_multi_feature(tags, data_list, title="",
         if data.size < 2:
             data = np.zeros(100)
             data_list[ix] = data
-        data_range_min = np.floor(min([min(data)]) - 1)
-        data_range_max = np.ceil(max([max(data)]) + 1)
+
+        data_range_min = np.floor(data.mean() - 3)
+        data_range_max = np.ceil(data.max() + 3)
+
 
     # create x axis data with required resolution
     x = linspace(data_range_min, data_range_max, resolution)
@@ -210,7 +230,7 @@ if __name__ == '__main__':
 
     output_file("combined.html")
 
-    p = ridge_kde_multi_feature_with_complement_set(tags=["rand1", "rand2", "rand3"], data_list=[set_a, set_b, set_b],
+    p = ridge_kde_multi_feature(tags=["rand1", "rand2"], data_list=[set_a, set_b],
                                                 resolution=1000,
                                                 plot_width=600, plot_height=1200, legend_fnt_size="8px",
                                                 scale_y=True)
