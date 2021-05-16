@@ -14,9 +14,9 @@ import sys
 sys.path.insert(1, "../../hvo_sequence")
 sys.path.insert(1, "../hvo_sequence")
 
-from GrooveEvaluator.plotting_utils import multi_feature_plotter
-
 from hvo_sequence.hvo_seq import HVO_Sequence
+
+from GrooveEvaluator.plotting_utils import multi_feature_plotter, multi_voice_velocity_profile_plotter
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -51,11 +51,12 @@ def check_if_passes_filters(df_row, filters):
                 meets_filter.append(False)
     return all(meets_filter)
 
+
 class GrooveMidiDataset(Dataset):
     def __init__(
             self,
             source_path="../preprocessed_dataset/datasets_extracted_locally/GrooveMidi/"
-                        "hvo_0.2.0/Processed_On_09_05_2021_at_23_06_hrs",
+                        "hvo_0.3.0/Processed_On_13_05_2021_at_12_56_hrs",
             subset="GrooveMIDI_processed_test",
             metadata_csv_filename="metadata.csv",
             hvo_pickle_filename="hvo_sequence_data.obj",
@@ -95,29 +96,51 @@ class GrooveMidiDataset(Dataset):
 
 feature_extractors_list_test = []
 
-set_ = "test"
+set_ = "train"
+gmds = []
 for style in Styles_complete:
     # Create a filter for style
     filters_for_style = deepcopy(filters)
     filters_for_style["style_primary"] = [style]
     # Load style subset of the GrooveMIDI set
-    torch_set = GrooveMidiDataset(filters=filters_for_style, subset="GrooveMIDI_processed_{}".format(set_))
-    gmd = GrooveMidiDataset(filters=filters_for_style)
+    # torch_set = GrooveMidiDataset(filters=filters_for_style, subset="GrooveMIDI_processed_{}".format(set_))
+    gmd = GrooveMidiDataset(filters=filters_for_style, subset="GrooveMIDI_processed_{}".format(set_))
+    gmds.append(gmd)
     if len(gmd.hvo_sequences) > 0:
         feature_extractors_list_test.append(Feature_Extractor_From_HVO_Set(
             gmd.hvo_sequences, name="{}".format(style))
         )
 
 
+if __name__ == '__main__':
+    """output_file("Test Set - All samples - Vel Profiles.html")
+    p = multi_voice_velocity_profile_plotter(feature_extractors_list=feature_extractors_list_test,
+                                             title_prefix = "Test_Set",
+                                             legend_fnt_size="18px",
+                                             plot_height_per_set=100
+    )
+    show(grid(p, ncols=3))"""
 
-# todo add normalized versions to plots
-output_file("combined.html")
-p = multi_feature_plotter(feature_extractors_list=feature_extractors_list_test,
-                          title_prefix="{}_set".format(set_),
-                          normalize_data=False,
-                          analyze_combined_sets=True,
-                          force_extract=False,
-                          plot_width=650, plot_height=600,
-                          legend_fnt_size="8px", scale_y=False, resolution=200)
+    # todo implement random sampling n_examples from set
 
-show(grid(p, ncols=3))
+    output_file("Test Set - All samples - Features.html")
+    p = multi_feature_plotter(feature_extractors_list=feature_extractors_list_test,
+                              title_prefix="{}_set".format(set_),
+                              normalize_data=False,
+                              analyze_combined_sets=True,
+                              force_extract=False,
+                              plot_width=650, plot_height=600,
+                              legend_fnt_size="8px", scale_y=False, resolution=200)
+
+    show(grid(p, ncols=3))
+
+    output_file("Test Set - All samples - Features - Normalized.html")
+    p = multi_feature_plotter(feature_extractors_list=feature_extractors_list_test,
+                              title_prefix="{}_set".format(set_),
+                              normalize_data=True,
+                              analyze_combined_sets=True,
+                              force_extract=False,
+                              plot_width=650, plot_height=600,
+                              legend_fnt_size="8px", scale_y=False, resolution=200)
+
+    show(grid(p, ncols=3))

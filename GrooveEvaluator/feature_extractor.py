@@ -5,9 +5,14 @@ from scipy.stats import  gaussian_kde
 from scipy import stats, integrate
 from GrooveEvaluator.settings import FEATURES_TO_EXTRACT
 import functools
+from scipy.stats.kde import gaussian_kde
 
 import sklearn
 from bokeh.io import output_file, show
+
+
+
+
 
 class Feature_Extractor_From_HVO_Set:
 
@@ -34,9 +39,9 @@ class Feature_Extractor_From_HVO_Set:
 
         self.features_to_extract = FEATURES_TO_EXTRACT
 
-        # __extracted_features is a dictionary with same structure as FEATURES_TO_EXTRACT dict
+        # __extracted_features_dict is a dictionary with same structure as FEATURES_TO_EXTRACT dict
         # the extracted features will be stored here upon calling the extract() method
-        self.__extracted_features = None
+        self.__extracted_features_dict = None
 
     @property
     def name(self):
@@ -47,19 +52,19 @@ class Feature_Extractor_From_HVO_Set:
         self.__name = name_
 
     @property
-    def extracted_features(self):
+    def extracted_features_dict(self):
         # If extract() hasn't been called previously, do so to extract features
         # If features extracted, No need to do so anymore
-        """if self.__extracted_features is None:
+        """if self.__extracted_features_dict is None:
             self.extract()"""
-        return self.__extracted_features
+        return self.__extracted_features_dict
 
-    def extract(self, use_tqdm=True, force_extract=False):
+    def extract(self, use_tqdm=True, force_extract=False, extract_indices=None):
 
         should_extract = [False]
-        if self.extracted_features is None:
+        if self.extracted_features_dict is None:
             should_extract.append(True)
-            self.__extracted_features = self.get_empty_extracted_features_dict(self.features_to_extract)
+            self.__extracted_features_dict = self.get_empty_extracted_features_dict_dict(self.features_to_extract)
 
         if force_extract is True:
             should_extract.append(True)
@@ -68,11 +73,13 @@ class Feature_Extractor_From_HVO_Set:
             if use_tqdm:
                 for ix in tqdm(range(len(self.hvo_dataset)), desc="Extracting Features from HVO_Sequence Set"):
                     sample_hvo = self.hvo_dataset[ix]
-                    self.update_statistical_features(sample_hvo)
-                    self.update_syncopation_features(sample_hvo)
-                    self.update_autocorrelation_features(sample_hvo)
-                    self.update_microtiming_features(sample_hvo)
-
+                    self.update_statistical_features(sample_hvo)        # 593.00it/s
+                    self.update_syncopation_features(sample_hvo)         # 167.00it/s
+                    self.update_autocorrelation_features(sample_hvo)        # 1320.64it/s
+                    self.update_microtiming_features(sample_hvo)            # 6.11it/s
+                                                                            # 3675.27it/s for swingness
+                                                                            # 15.00 it/s for laidbackness
+                                                                            # improved 15.00 it/s to 4101 for Accuracy
             else:
                 for ix in range(len(self.hvo_dataset)):
                     sample_hvo = self.hvo_dataset[ix]
@@ -81,170 +88,209 @@ class Feature_Extractor_From_HVO_Set:
                     self.update_autocorrelation_features(sample_hvo)
                     self.update_microtiming_features(sample_hvo)
 
+    def extract_pdf(self, use_tqdm=True, force_extract=False):
+        self.extract(use_tqdm=use_tqdm, force_extract=force_extract)
+
+    def extract_velocity_profile(self):
+
+        drum_voices = self.hvo_dataset[0].drum_mapping
+
+        # create a dictionary where keys are the drum voice ("kick" "snare" ...)
+        # and the corresponding value is a tuple of (time_array, velocity_array)
+        velocity_profile_dict = {
+            voice_key: (np.array([]), np.array([])) for voice_key in drum_voices
+        }
+
+        # Compile all the velocities together
+        for hvo_seq in self.hvo_dataset:
+            v = hvo_seq.get("v")
+            o = hvo_seq.get("o")
+            t = np.multiply(np.arange(o.shape[0]).reshape(-1, 1), np.ones((1, o.shape[1])))
+            t = t + o
+            for voice_ix, drum_voice in enumerate(drum_voices):
+                non_zero_indices = np.argwhere(v[:, voice_ix] > 0)
+                if non_zero_indices.size > 0:
+                    velocity_profile_dict[drum_voice] = (
+                        np.append(velocity_profile_dict[drum_voice][0], t[non_zero_indices, voice_ix]),  # timing
+                        np.append(velocity_profile_dict[drum_voice][1], 127 * v[non_zero_indices, voice_ix]),
+                    )
+
+
+        for voice_ix, drum_voice in enumerate(drum_voices):
+            sorted_time_indices = np.argsort(velocity_profile_dict[drum_voice][0])
+            velocity_profile_dict[drum_voice] = (
+                velocity_profile_dict[drum_voice][0][sorted_time_indices],
+                velocity_profile_dict[drum_voice][1][sorted_time_indices]
+            )
+
+        return velocity_profile_dict
+
     def update_statistical_features(self, sample_hvo):
 
-        statistical_keys = self.__extracted_features["Statistical"].keys()
+        statistical_keys = self.__extracted_features_dict.keys()
 
-        if "NoI" in statistical_keys:
-            self.__extracted_features["Statistical"]["NoI"] = np.append(
-                self.__extracted_features["Statistical"]["NoI"],
+        if "Statistical::NoI" in statistical_keys:
+            self.__extracted_features_dict["Statistical::NoI"] = np.append(
+                self.__extracted_features_dict["Statistical::NoI"],
                 sample_hvo.get_number_of_active_voices()
             )
 
-        if "Total Step Density" in statistical_keys:
-            self.__extracted_features["Statistical"]["Total Step Density"] = np.append(
-                self.__extracted_features["Statistical"]["Total Step Density"],
+        if "Statistical::Total Step Density" in statistical_keys:
+            self.__extracted_features_dict["Statistical::Total Step Density"] = np.append(
+                self.__extracted_features_dict["Statistical::Total Step Density"],
                 sample_hvo.get_total_step_density()
             )
 
-        if "Avg Voice Density" in statistical_keys:
-            self.__extracted_features["Statistical"]["Avg Voice Density"] = np.append(
-                self.__extracted_features["Statistical"]["Avg Voice Density"],
+        if "Statistical::Avg Voice Density" in statistical_keys:
+            self.__extracted_features_dict["Statistical::Avg Voice Density"] = np.append(
+                self.__extracted_features_dict["Statistical::Avg Voice Density"],
                 sample_hvo.get_average_voice_density()
             )
 
-        if any(x in statistical_keys for x in ["Lowness", "Midness", "Hiness"]):
+        if any(x in statistical_keys for x in ["Statistical::Lowness", "Statistical::Midness", "Statistical::Hiness"]):
             lowness, midness, hiness = sample_hvo.get_lowness_midness_hiness()
-            if "Lowness" in statistical_keys:
-                self.__extracted_features["Statistical"]["Lowness"] = np.append(
-                    self.__extracted_features["Statistical"]["Lowness"],
+            if "Statistical::Lowness" in statistical_keys:
+                self.__extracted_features_dict["Statistical::Lowness"] = np.append(
+                    self.__extracted_features_dict["Statistical::Lowness"],
                     lowness
                 )
-            if "Midness" in statistical_keys:
-                self.__extracted_features["Statistical"]["Midness"] = np.append(
-                    self.__extracted_features["Statistical"]["Midness"],
+            if "Statistical::Midness" in statistical_keys:
+                self.__extracted_features_dict["Statistical::Midness"] = np.append(
+                    self.__extracted_features_dict["Statistical::Midness"],
                     midness
                 )
-            if "Hiness" in statistical_keys:
-                self.__extracted_features["Statistical"]["Hiness"] = np.append(
-                    self.__extracted_features["Statistical"]["Hiness"],
+            if "Statistical::Hiness" in statistical_keys:
+                self.__extracted_features_dict["Statistical::Hiness"] = np.append(
+                    self.__extracted_features_dict["Statistical::Hiness"],
                     hiness
                 )
 
-        if "Vel Similarity Score" in statistical_keys:
-            self.__extracted_features["Statistical"]["Vel Similarity Score"] = np.append(
-                self.__extracted_features["Statistical"]["Vel Similarity Score"],
+        if "Statistical::Vel Similarity Score" in statistical_keys:
+            self.__extracted_features_dict["Statistical::Vel Similarity Score"] = np.append(
+                self.__extracted_features_dict["Statistical::Vel Similarity Score"],
                 sample_hvo.get_velocity_score_symmetry()
             )
 
-        if "Weak to Strong Ratio" in statistical_keys:
-            self.__extracted_features["Statistical"]["Weak to Strong Ratio"] = np.append(
-                self.__extracted_features["Statistical"]["Weak to Strong Ratio"],
+        if "Statistical::Weak to Strong Ratio" in statistical_keys:
+            self.__extracted_features_dict["Statistical::Weak to Strong Ratio"] = np.append(
+                self.__extracted_features_dict["Statistical::Weak to Strong Ratio"],
                 sample_hvo.get_total_weak_to_strong_ratio()
             )
 
-        if any(x in statistical_keys for x in ["Poly Velocity Mean", "Poly Velocity std"]):
+        if any(x in statistical_keys for x in ["Statistical::Poly Velocity Mean", "Statistical::Poly Velocity std"]):
             mean, std = sample_hvo.get_polyphonic_velocity_mean_stdev()
-            if "Poly Velocity Mean" in statistical_keys:
-                self.__extracted_features["Statistical"]["Poly Velocity Mean"] = np.append(
-                    self.__extracted_features["Statistical"]["Poly Velocity Mean"],
+            if "Statistical::Poly Velocity Mean" in statistical_keys:
+                self.__extracted_features_dict["Statistical::Poly Velocity Mean"] = np.append(
+                    self.__extracted_features_dict["Statistical::Poly Velocity Mean"],
                     mean
                 )
-            if "Poly Velocity std" in statistical_keys:
-                self.__extracted_features["Statistical"]["Poly Velocity std"] = np.append(
-                    self.__extracted_features["Statistical"]["Poly Velocity std"],
+            if "Statistical::Poly Velocity std" in statistical_keys:
+                self.__extracted_features_dict["Statistical::Poly Velocity std"] = np.append(
+                    self.__extracted_features_dict["Statistical::Poly Velocity std"],
                     std
                 )
 
-        if any(x in statistical_keys for x in ["Poly Offset Mean", "Poly Offset std"]):
+        if any(x in statistical_keys for x in ["Statistical::Poly Offset Mean", "Statistical::Poly Offset std"]):
             mean, std = sample_hvo.get_polyphonic_offset_mean_stdev()
-            if "Poly Offset Mean" in statistical_keys:
-                self.__extracted_features["Statistical"]["Poly Offset Mean"] = np.append(
-                    self.__extracted_features["Statistical"]["Poly Offset Mean"],
+            if "Statistical::Poly Offset Mean" in statistical_keys:
+                self.__extracted_features_dict["Statistical::Poly Offset Mean"] = np.append(
+                    self.__extracted_features_dict["Statistical::Poly Offset Mean"],
                     mean
                 )
-            if "Poly Offset std" in statistical_keys:
-                self.__extracted_features["Statistical"]["Poly Offset std"] = np.append(
-                    self.__extracted_features["Statistical"]["Poly Offset std"],
+            if "Statistical::Poly Offset std" in statistical_keys:
+                self.__extracted_features_dict["Statistical::Poly Offset std"] = np.append(
+                    self.__extracted_features_dict["Statistical::Poly Offset std"],
                     std
                 )
 
     def update_syncopation_features(self, sample_hvo):
-        sync_keys = self.__extracted_features["Syncopation"].keys()
+        sync_keys = self.__extracted_features_dict.keys()
 
-        if "Combined" in sync_keys:
-            self.__extracted_features["Syncopation"]["Combined"] = np.append(
-                self.__extracted_features["Syncopation"]["Combined"],
+        if "Syncopation::Combined" in sync_keys:
+            self.__extracted_features_dict["Syncopation::Combined"] = np.append(
+                self.__extracted_features_dict["Syncopation::Combined"],
                 sample_hvo.get_combined_syncopation()
             )
 
-        if "Polyphonic" in sync_keys:
-            self.__extracted_features["Syncopation"]["Polyphonic"] = np.append(
-                self.__extracted_features["Syncopation"]["Polyphonic"],
+        if "Syncopation::Polyphonic" in sync_keys:
+            self.__extracted_features_dict["Syncopation::Polyphonic"] = np.append(
+                self.__extracted_features_dict["Syncopation::Polyphonic"],
                 sample_hvo.get_witek_polyphonic_syncopation()
             )
 
-        if any(shared_feats in sync_keys for shared_feats in ["Lowsync", "Midsync", "Hisync",
-                                                                       "Lowsyness", "Midsyness", "Hisyness"]):
+        if any(shared_feats in sync_keys for shared_feats in ["Syncopation::Lowsync", "Syncopation::Midsync",
+                                                              "Syncopation::Hisync","Syncopation::Lowsyness",
+                                                              "Syncopation::Midsyness", "Syncopation::Hisyness"]):
 
             lmh_sync_info = sample_hvo.get_low_mid_hi_syncopation_info()
 
-            for feat in ["Lowsync", "Midsync", "Hisync", "Lowsyness", "Midsyness", "Hisyness"]:
-                if feat in sync_keys:
-                    self.__extracted_features["Syncopation"][feat] = np.append(
-                        self.__extracted_features["Syncopation"][feat],
-                        lmh_sync_info[feat.lower()]
+            for feat in ["Syncopation::Lowsync", "Syncopation::Midsync", "Syncopation::Hisync", "Syncopation::Lowsyness",
+                         "Syncopation::Midsyness", "Syncopation::Hisyness"]:
+                if feat.split("::")[-1].lower() in lmh_sync_info.keys():
+                    self.__extracted_features_dict[feat] = np.append(
+                        self.__extracted_features_dict[feat],
+                        lmh_sync_info[feat.split("::")[-1].lower()]
                     )
 
-        if "Complexity" in sync_keys:
-            self.__extracted_features["Syncopation"]["Complexity"] = np.append(
-                self.__extracted_features["Syncopation"]["Complexity"],
+        if "Syncopation::Complexity" in sync_keys:
+            self.__extracted_features_dict["Syncopation::Complexity"] = np.append(
+                self.__extracted_features_dict["Syncopation::Complexity"],
                 sample_hvo.get_total_complexity()
             )
 
     def update_autocorrelation_features(self, sample_hvo):
-        autocorrelation_keys = self.__extracted_features["Auto-Correlation"].keys()
+        autocorrelation_keys = self.__extracted_features_dict.keys()
 
         if any(shared_feats in autocorrelation_keys for shared_feats in [
-            "Skewness", "Max", "Centroid", "Harmonicity"]
+            "Auto-Correlation::Skewness", "Auto-Correlation::Max",
+            "Auto-Correlation::Centroid", "Auto-Correlation::Harmonicity"]
                ):
             autocorrelation_features = sample_hvo.get_velocity_autocorrelation_features()
 
-            for feat in ["Skewness", "Max", "Centroid", "Harmonicity"]:
-                if feat in autocorrelation_keys:
-                    self.__extracted_features["Auto-Correlation"][feat] = np.append(
-                        self.__extracted_features["Auto-Correlation"][feat],
-                        autocorrelation_features[feat.lower()]
-                    )
+            for feat in ["Auto-Correlation::Skewness", "Auto-Correlation::Max",
+                         "Auto-Correlation::Centroid", "Auto-Correlation::Harmonicity"]:
+                self.__extracted_features_dict[feat] = np.append(
+                        self.__extracted_features_dict[feat],
+                        autocorrelation_features[feat.split("::")[-1].lower()]
+                )
 
     def update_microtiming_features(self, sample_hvo):
-        microtiming_keys = self.__extracted_features["Micro-Timing"].keys()
 
-        if "Swingness" in microtiming_keys:
-            self.__extracted_features["Micro-Timing"]["Swingness"] = np.append(
-                self.__extracted_features["Micro-Timing"]["Swingness"],
+        if "Micro-Timing::Swingness" in self.__extracted_features_dict.keys():
+            self.__extracted_features_dict["Micro-Timing::Swingness"] = np.append(
+                self.__extracted_features_dict["Micro-Timing::Swingness"],
                 sample_hvo.swingness()
             )
 
-        if "Laidbackness" in microtiming_keys:
-            self.__extracted_features["Micro-Timing"]["Laidbackness"] = np.append(
-                self.__extracted_features["Micro-Timing"]["Laidbackness"],
+        if "Micro-Timing::Laidbackness" in self.__extracted_features_dict.keys():
+            self.__extracted_features_dict["Micro-Timing::Laidbackness"] = np.append(
+                self.__extracted_features_dict["Micro-Timing::Laidbackness"],
                 sample_hvo.laidbackness()
             )
 
-        if "Accuracy" in microtiming_keys:
-            self.__extracted_features["Micro-Timing"]["Accuracy"] = np.append(
-                self.__extracted_features["Micro-Timing"]["Accuracy"],
+        if "Micro-Timing::Accuracy" in self.__extracted_features_dict.keys():
+            self.__extracted_features_dict["Micro-Timing::Accuracy"] = np.append(
+                self.__extracted_features_dict["Micro-Timing::Accuracy"],
                 sample_hvo.get_timing_accuracy()
             )
 
-    def get_empty_extracted_features_dict(self, _features_to_extract):
+    def get_empty_extracted_features_dict_dict(self, _features_to_extract):
+        '''
+        creates an empty dictionary for
+        :param _features_to_extract:
+        :return:
+        '''
         # Create a new dictionary with same structure as _features_to_extract
         # Initialize to an empty np array and remove non required features
-        extracted_features = \
-            {
-                type_key:
-                    {
-                        feat_key: np.array([], dtype=np.float16) for feat_key in _features_to_extract[type_key].keys()
-                    } for type_key in _features_to_extract.keys()
-            }
 
-        for type in _features_to_extract.keys():
-            for feat in _features_to_extract[type].keys():
-                if _features_to_extract[type][feat] is not True:
-                    extracted_features[type].pop(feat)
+        extracted_features_dict = {}
 
-        return extracted_features
+        for type_key in _features_to_extract.keys():
+            for feat_key in _features_to_extract[type_key].keys():
+                if _features_to_extract[type_key][feat_key] is True:
+                    extracted_features_dict.update({"{}::{}".format(type_key, feat_key) :  np.array([], dtype=np.float16) })
+
+        return extracted_features_dict
 
     def get_major_minor_field_keys(self):
         # returns top level and specific feature levels
@@ -397,34 +443,3 @@ class Distance_to_PDF_Converter:
         self.__interset_pdfs_per_features = convert_distances_dict_to_pdf_histograms_dict(
             self.interset_distances_per_features)
         return self.__intraset_pdfs_per_features, self.__interset_pdfs_per_features
-
-"""
-
-def c_dist(A, B, mode='None', normalize=0):
-    c_dist = np.zeros(len(B))
-    for i in range(0, len(B)):
-        if mode == 'None':
-            c_dist[i] = np.linalg.norm(A - B[i])
-        elif mode == 'EMD':
-            if normalize == 1:
-                A_ = sklearn.preprocessing.normalize(A.reshape(1, -1), norm='l1')[0]
-                B_ = sklearn.preprocessing.normalize(B[i].reshape(1, -1), norm='l1')[0]
-            else:
-                A_ = A.reshape(1, -1)[0]
-                B_ = B[i].reshape(1, -1)[0]
-
-            c_dist[i] = stats.wasserstein_distance(A_, B_)
-
-        elif mode == 'KL':
-            if normalize == 1:
-                A_ = sklearn.preprocessing.normalize(A.reshape(1, -1), norm='l1')[0]
-                B_ = sklearn.preprocessing.normalize(B[i].reshape(1, -1), norm='l1')[0]
-            else:
-                A_ = A.reshape(1, -1)[0]
-                B_ = B[i].reshape(1, -1)[0]
-
-            B_[B_ == 0] = 0.00000001
-            c_dist[i] = stats.entropy(A_, B_)
-    return c_dist
-
-"""
