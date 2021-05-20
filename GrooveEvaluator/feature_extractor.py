@@ -10,8 +10,193 @@ from scipy.stats.kde import gaussian_kde
 import sklearn
 from bokeh.io import output_file, show
 
+from scipy.ndimage.filters import gaussian_filter
+
+import warnings
+warnings.filterwarnings("ignore")
 
 
+class Feature_Extractor_From_HVO_SubSets:
+    def __init__(
+            self,
+            hvo_subsets,
+            tags=None,
+            features_to_extract=FEATURES_TO_EXTRACT,
+            auto_extract=False,
+            subsets_from_gmd=True,      # todo change this later on to incorporate other datasets
+                                        # used for getting number of unique performances in each set
+            max_samples_in_subset=None,
+    ):
+        """
+        Extracts features for each sample within a list of lists containing hvo_sequences
+        each interior list corresponds to a hvo subset
+        the tags should have the same length as hvo_datasets
+        (compatible with HVO_Sequence Version >= 0.1.0)
+
+        :param hvo_subsets:                 List of List of HVO_Sequence Sets [[Set 1 HVO_Seqs], [Set 2 HVO_Seqs]]
+        :param tags:                        tags corresponding to subsets
+        :param features_to_extract:         Dictionary of features (for which extractors are implemented in hvo_sequence)
+                                            Must be formatted same way as GrooveEvaluator.settings.FEATURES_TO_EXTRACT
+        :param auto_extract:                If True, features are extracted as soon as the class is instantiated
+        """
+
+        if tags is not None:
+            assert len(tags) == len(hvo_subsets), "the length tags MUST be the same as the length of hvo_subsets"
+
+        # Ignore empty sets
+        self.tags = []
+        self.hvo_subsets = []
+
+        for ix, (tag, hvo_subset) in enumerate(zip(tags, hvo_subsets)):
+            if len(hvo_subset) >= 1:
+                if max_samples_in_subset is None:
+                    # Grab all samples
+                    self.hvo_subsets.append(hvo_subset)
+                else:
+                    max_samples = min(max_samples_in_subset, len(hvo_subset))
+                    # Randomly grab max_samples_in_subset samples
+                    self.hvo_subsets.append(np.random.choice(hvo_subset, max_samples, replace=False))
+
+                self.tags.append(tag)
+
+        self.features_to_extract = features_to_extract
+
+        # each extracted_features_dict is a dictionary with same structure as FEATURES_TO_EXTRACT dict
+        # the extracted features will be stored here upon calling the extract() method
+        # will be formatted as dict{"tag0": {features for subset 1}, "tag1": {features for subset 2}}
+        self.Feature_Extractors_for_each_subset = [
+            Feature_Extractor_From_HVO_Set(
+                self.hvo_subsets[ix], name=tags[ix]
+            ) for ix in range(len(self.hvo_subsets))
+        ]
+
+        if auto_extract is True:
+            for Feature_Extractor_for_subset in self.Feature_Extractors_for_each_subset:
+                Feature_Extractor_for_subset.extract()
+
+        # Get the number of loops in each set
+        self.number_of_loops_in_sets = {}
+        self.number_of_loops_in_sets.update(
+            {
+                set_name: len(hvo_subset) for set_name, hvo_subset in zip(self.tags, self.hvo_subsets)
+            }
+        )
+
+        self.number_of_unique_performances_in_sets = None
+        # Get the number of unique performances in each dataset if gmd dataset
+        self.number_of_unique_performances_in_sets = {}
+        if subsets_from_gmd is True:
+            self.number_of_unique_performances_in_sets.update(
+                {
+                    set_name: len(
+                        list(set(([hvo_seq.metadata.master_id for hvo_seq in hvo_subset])))
+                    ) for set_name, hvo_subset in zip(self.tags, self.hvo_subsets)
+                }
+            )
+
+    def extract(self, use_tqdm=True, force_extract=False):
+        # Extract Features
+        for Feature_Extractor_for_each_subset in self.Feature_Extractors_for_each_subset:
+            Feature_Extractor_for_each_subset.extract(use_tqdm, force_extract)
+
+    def get_global_features_dicts(self, use_tqdm=True, force_extract=False, regroup_by_feature=True):
+        # If extract() hasn't been called previously, do so to extract features
+        # If features extracted, No need to do so anymore
+        self.extract(use_tqdm, force_extract)
+
+        features_dicts_per_subset_list = []
+        feature_keys = []
+
+        for FE_for_SubSet in self.Feature_Extractors_for_each_subset:
+            feature_dict = FE_for_SubSet.extracted_features_dict
+            features_dicts_per_subset_list.append(feature_dict)
+            for feature_key in feature_dict.keys():
+                if feature_key not in feature_keys:
+                    feature_keys.append(feature_key)
+
+        if regroup_by_feature is True:
+            feature_dicts_grouped = {
+                feature_key: {tag: []} for feature_key in feature_keys for tag in self.tags}
+            for feature_key in feature_keys:
+                for tag_ix, tag in enumerate(self.tags):
+                    feature_dicts_grouped[feature_key][tag] = features_dicts_per_subset_list[tag_ix][feature_key]
+        else:
+            feature_dicts_grouped = {
+                tag: {feature_key: []} for tag in self.tags for feature_key in feature_keys}
+            for tag_ix, tag in enumerate(self.tags):
+                for feature_key in feature_keys:
+                    feature_dicts_grouped[tag][feature_key] = features_dicts_per_subset_list[tag_ix][
+                        feature_key]
+
+        return feature_dicts_grouped
+
+    def get_scatter_velocities_and_timings_dict(self, regroup_by_drum_voice=True):
+        # Gets velocity profiles for each subset
+        # returns
+        velocity_profiles = []
+        voice_keys = []
+        for FE_for_SubSet in self.Feature_Extractors_for_each_subset:
+            # each velocity_profile is a dictionary where keys are the drum voice ("kick" "snare" ...)
+            # and the corresponding value is a tuple of (time_array, velocity_array)
+            velocity_profile = FE_for_SubSet.extract_velocity_profile()
+            velocity_profiles.append(velocity_profile)
+            for voice_key in velocity_profile.keys():
+                if voice_key not in voice_keys:
+                    voice_keys.append(voice_key)
+
+        if regroup_by_drum_voice is True:
+            velocity_profiles_dict = {
+                voice_key: {tag: []} for voice_key in voice_keys for tag in self.tags}
+            for voice_key in voice_keys:
+                for tag_ix, tag in enumerate(self.tags):
+                    velocity_profiles_dict[voice_key][tag] = velocity_profiles[tag_ix][voice_key]
+        else:
+            velocity_profiles_dict = {
+                tag: {voice_key: []} for tag in self.tags for voice_key in voice_keys}
+            for tag_ix, tag in enumerate(self.tags):
+                for voice_key in voice_keys:
+                    velocity_profiles_dict[tag][voice_key] = velocity_profiles[tag_ix][voice_key]
+
+        return velocity_profiles_dict
+
+    def get_velocity_timing_heatmap_dicts(self, regroup_by_drum_voice=True, s=8, bins=None):
+
+        if bins is None:
+            bins = [32*10, 127]
+
+        scatter_velocities_and_timings_dict = self.get_scatter_velocities_and_timings_dict(
+            regroup_by_drum_voice=regroup_by_drum_voice)
+
+        heatmaps_dict = {
+            major_key: {
+                minor_key: []
+                        }
+            for major_key in scatter_velocities_and_timings_dict.keys()
+            for minor_key in scatter_velocities_and_timings_dict[major_key].keys()
+        }
+
+        for major_key in scatter_velocities_and_timings_dict.keys():
+            for minor_key in scatter_velocities_and_timings_dict[major_key].keys():
+                (times, vels) = scatter_velocities_and_timings_dict[major_key][minor_key]
+                heatmap, xedges, yedges = np.histogram2d(times, vels, bins=bins)
+                # check this for parameter selection
+                # https://stackoverflow.com/questions/25216382/gaussian-filter-in-scipy
+                heatmap = gaussian_filter(heatmap, sigma=s)     # , truncate=t)
+                extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+                heatmaps_dict[major_key][minor_key] = (heatmap.T, extent)
+
+        return heatmaps_dict, scatter_velocities_and_timings_dict
+
+    def get_few_hvo_samples(self, num_samples):
+        n_sets = len(self.hvo_subsets)
+        sample_hvos = []
+        for ix in range(num_samples):
+            # Grab a subset randomly (uniformly possible regardless of number of samples within)
+            random_subset_ix = np.random.randint(0, n_sets)
+            # grab a random sample from the selected subset
+            random_sample_ix = np.random.randint(0, len(self.hvo_subsets[random_subset_ix]))
+            sample_hvos.append(self.hvo_subsets[random_subset_ix][random_sample_ix])
+        return sample_hvos
 
 
 class Feature_Extractor_From_HVO_Set:
@@ -37,11 +222,12 @@ class Feature_Extractor_From_HVO_Set:
         # Add the dataset to self
         self.hvo_dataset = hvo_dataset
 
-        self.features_to_extract = FEATURES_TO_EXTRACT
+        self.features_to_extract = features_to_extract
 
         # __extracted_features_dict is a dictionary with same structure as FEATURES_TO_EXTRACT dict
         # the extracted features will be stored here upon calling the extract() method
         self.__extracted_features_dict = None
+        self.__velocity_profile = None
 
     @property
     def name(self):
@@ -55,11 +241,16 @@ class Feature_Extractor_From_HVO_Set:
     def extracted_features_dict(self):
         # If extract() hasn't been called previously, do so to extract features
         # If features extracted, No need to do so anymore
-        """if self.__extracted_features_dict is None:
-            self.extract()"""
         return self.__extracted_features_dict
 
-    def extract(self, use_tqdm=True, force_extract=False, extract_indices=None):
+    @property
+    def velocity_profile(self):
+        # returns (and extracts if not done already) the velocity profile
+        if self.__velocity_profile is None:
+            self.__velocity_profile = self.extract_velocity_profile()
+        return self.__velocity_profile
+
+    def extract(self, use_tqdm=True, force_extract=False):
 
         should_extract = [False]
         if self.extracted_features_dict is None:
@@ -80,6 +271,7 @@ class Feature_Extractor_From_HVO_Set:
                                                                             # 3675.27it/s for swingness
                                                                             # 15.00 it/s for laidbackness
                                                                             # improved 15.00 it/s to 4101 for Accuracy
+
             else:
                 for ix in range(len(self.hvo_dataset)):
                     sample_hvo = self.hvo_dataset[ix]
@@ -114,7 +306,6 @@ class Feature_Extractor_From_HVO_Set:
                         np.append(velocity_profile_dict[drum_voice][0], t[non_zero_indices, voice_ix]),  # timing
                         np.append(velocity_profile_dict[drum_voice][1], 127 * v[non_zero_indices, voice_ix]),
                     )
-
 
         for voice_ix, drum_voice in enumerate(drum_voices):
             sorted_time_indices = np.argsort(velocity_profile_dict[drum_voice][0])

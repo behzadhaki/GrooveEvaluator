@@ -11,10 +11,10 @@ from bokeh.io import output_file, show
 from bokeh.layouts import layout, grid
 
 import sys
-sys.path.insert(1, "../../hvo_sequence")
-sys.path.insert(1, "../hvo_sequence")
+sys.path.insert(1, "../../")
+sys.path.insert(1, "../")
 
-from hvo_sequence.hvo_seq import HVO_Sequence
+from preprocessed_dataset.Subset_Creators import subsetters
 
 from GrooveEvaluator.plotting_utils import multi_feature_plotter, multi_voice_velocity_profile_plotter
 
@@ -96,7 +96,7 @@ class GrooveMidiDataset(Dataset):
 
 feature_extractors_list_test = []
 
-set_ = "train"
+set_ = "test"
 gmds = []
 for style in Styles_complete:
     # Create a filter for style
@@ -113,17 +113,17 @@ for style in Styles_complete:
 
 
 if __name__ == '__main__':
-    """output_file("Test Set - All samples - Vel Profiles.html")
+    output_file("{} Set - All samples - Vel Profiles.html".format(set_))
     p = multi_voice_velocity_profile_plotter(feature_extractors_list=feature_extractors_list_test,
-                                             title_prefix = "Test_Set",
+                                             title_prefix = "{}_set".format(set_),
                                              legend_fnt_size="18px",
                                              plot_height_per_set=100
     )
-    show(grid(p, ncols=3))"""
+    show(grid(p, ncols=3))
 
     # todo implement random sampling n_examples from set
 
-    output_file("Test Set - All samples - Features.html")
+    output_file("{} Set - All samples - Features.html".format(set_))
     p = multi_feature_plotter(feature_extractors_list=feature_extractors_list_test,
                               title_prefix="{}_set".format(set_),
                               normalize_data=False,
@@ -134,7 +134,7 @@ if __name__ == '__main__':
 
     show(grid(p, ncols=3))
 
-    output_file("Test Set - All samples - Features - Normalized.html")
+    output_file("{} Set - All samples - Features - Normalized.html".format(set_))
     p = multi_feature_plotter(feature_extractors_list=feature_extractors_list_test,
                               title_prefix="{}_set".format(set_),
                               normalize_data=True,

@@ -10,13 +10,11 @@ from bokeh.io import output_file, show
 from bokeh.models import ColumnDataSource, FixedTicker, PrintfTickFormatter, Legend, SingleIntervalTicker, LinearAxis
 from bokeh.plotting import figure
 from bokeh.sampledata.perceptions import probly
-from bokeh.models import HBar
 
 from bokeh.layouts import layout, column, row
 
 import numpy as np
-
-# todo create plots for only a maximum number of samples
+from bokeh.models.widgets import Tabs, Panel
 
 ##############################################
 ###
@@ -24,6 +22,37 @@ import numpy as np
 #               profiles/Histograms
 ###
 ##############################################
+
+def separate_figues_by_tabs(bokeh_fig_list, tab_titles=None, top_panel_identifier="::"):
+
+    titles = [str(tab_ix) for tab_ix in range(bokeh_fig_list)] if tab_titles is None else tab_titles
+
+    top_tab_bottom_tabs_dicts = {"other": []}
+
+    for ix, tab_title in enumerate(tab_titles):
+        _p = bokeh_fig_list[ix]
+        if len(tab_title.split("::")) > 1:
+            top_key = tab_title.split("::")[0]
+            title_ = tab_title.split("::")[1]
+            if top_key not in top_tab_bottom_tabs_dicts.keys():
+                top_tab_bottom_tabs_dicts.update({top_key: [Panel(child=_p, title=title_)]})
+            else:
+                top_tab_bottom_tabs_dicts[top_key].append(Panel(child=_p, title=title_))
+        else:
+            title_ = tab_title
+            top_tab_bottom_tabs_dicts["other"].append(Panel(child=_p, title=title_))
+
+    top_panels = []
+    for major_key in top_tab_bottom_tabs_dicts.keys():
+        top_panels.append(Panel(child=Tabs(tabs=top_tab_bottom_tabs_dicts[major_key]), title=major_key))
+
+    return Tabs(tabs=top_panels)
+
+def simplify_tags(tags, separator="_AND_"):
+    tags_ = list()
+    for tag in tags:
+        tags_.append(tag.split(separator)[0])
+    return tags_
 
 def heat_map_plot(x, y, s, bins=[32*10, 127]):
     """
@@ -42,11 +71,234 @@ def heat_map_plot(x, y, s, bins=[32*10, 127]):
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
     return heatmap.T, extent
 
+def velocity_timing_heatmaps_scatter_plotter(
+        heatmaps_dict,
+        scatters_dict,
+        number_of_loops_per_subset_dict,
+        number_of_unique_performances_per_subset_dict=None,
+        organized_by_drum_voice=True,               # denotes that the first key in heatmap and dict corresponds to drum voices
+        title_prefix="",
+        plot_width=1200, plot_height_per_set=400,legend_fnt_size="12px",
+        synchronize_plots=True,
+        downsample_heat_maps_by=1
+):
+
+    # Create a separate figure for first keys
+    major_keys = list(heatmaps_dict.keys())                     # (either drum voice or subset tag)
+    minor_keys = list(heatmaps_dict[major_keys[0]].keys())      # (either drum voice or subset tag)
+
+    if organized_by_drum_voice is True:
+        # Majors are drum voice and minors are subset tags
+        major_titles = ["{} {}".format(title_prefix, str(major_key)) for major_key in major_keys]
+
+        minor_tags = ["{}".format(
+            str(minor_key)).replace("_AND_", "") for minor_key in minor_keys]
+
+        y_labels = ["{} n_loops={}".format(
+            str(minor_key), number_of_loops_per_subset_dict[minor_key]
+        ).replace("_AND_", "") for minor_key in minor_keys]
+
+        if number_of_unique_performances_per_subset_dict is not None:
+            y_labels = ["{}, unique_perfs={}".format(
+                y_labels[ix], number_of_unique_performances_per_subset_dict[minor_key]
+            ) for ix, minor_key in enumerate(minor_keys)]
+
+    else:
+        # Majors are subset tags and minors are drum voice
+        major_titles = ["{} {} n_loops={}".format(
+            title_prefix, str(major_key), number_of_loops_per_subset_dict[major_key]
+        ).replace("_AND_", "") for major_key in major_keys]
+
+        if number_of_unique_performances_per_subset_dict is not None:
+            major_titles = ["{}, unique_perfs={}".format(
+                major_titles[ix], number_of_unique_performances_per_subset_dict[major_key]
+            ) for ix, major_key in enumerate(major_keys)]
+
+        minor_tags = ["{}".format(str(minor_key)) for minor_key in minor_keys]
+        y_labels = minor_tags
+
+
+    # Create a color palette for plots
+    n_groups_per_plot = len(minor_tags)
+    palette_resolution = int(254 // n_groups_per_plot)
+    palette = [cc.rainbow[i * palette_resolution] for i in range(n_groups_per_plot)]
+
+    # Figure holder for returning at the very end
+    final_figure_layout = list()
+
+    # Height of each subplot can be specified via the input parameters
+    plot_height = int(plot_height_per_set * n_groups_per_plot)
+
+    for major_ix, major_key in enumerate(major_keys):
+
+        # Bokeh object holders
+        legend_it = list()
+        histogram_figures = list()
+        scatter_figures = list()
+
+        # Attach the X/Y axis of all plots
+        if major_ix == 0 or synchronize_plots is False:
+            p = figure(plot_width=plot_width, plot_height=plot_height)
+        else:
+            p = figure(plot_width=plot_width, plot_height=plot_height, x_range=p.x_range, y_range=p.y_range, title=None)
+
+        p.title = major_titles[major_ix]
+
+        for minor_ix, minor_key in enumerate(minor_keys):
+            scatter_times, scatter_vels = scatters_dict[major_key][minor_key]
+            heatmap_data, heatmap_extents = heatmaps_dict[major_key][minor_key]
+
+
+            # Scatter Plot
+            c = p.circle(x=scatter_times, y=(scatter_vels + 127 * 1.02 * minor_ix), color=palette[minor_ix])
+            legend_it.append(("{}".format(minor_tags[minor_ix]), [c]))
+            scatter_figures.append(c)
+
+            # Heat map plot Get Velocity Profile and Heat map
+            im = p.image(
+                image=[heatmap_data[:,::downsample_heat_maps_by]],
+                x=heatmap_extents[0], y=heatmap_extents[2] + 127 * 1.02 * minor_ix,
+                dw=heatmap_extents[1] - heatmap_extents[0],
+                dh=heatmap_extents[3] - heatmap_extents[2],
+                palette="Spectral11", level="image"
+            )
+            histogram_figures.append(im)
+
+        # Legend stuff here
+        legend_it.append(("Hide Heat Maps", histogram_figures))
+        legend_it.append(("Hide Scatters", scatter_figures))
+        legend = Legend(items=legend_it)
+        legend.label_text_font_size = legend_fnt_size
+        legend.click_policy = "hide"
+        p.add_layout(legend, 'right')
+
+        p.ygrid.grid_line_color = None
+        p.yaxis.minor_tick_line_color = None
+        p.yaxis.major_tick_line_color = None
+        p.yaxis.ticker = 127 * 1.02 * np.arange(len(legend_it)) + 127 / 2
+        p.yaxis.major_label_overrides = dict(
+            zip(127 * 1.02 * np.arange(len(legend_it)) + 127 / 2, y_labels))
+        p.yaxis.minor_tick_line_color = "#efefef"
+        p.y_range.range_padding = 0.12
+
+        # xgrid and xaxis settings
+        p.xgrid.minor_grid_line_color = 'navy'
+        p.xgrid.minor_grid_line_alpha = 0.1
+        p.xgrid.grid_line_width = 5
+        p.xaxis.ticker.num_minor_ticks = 4
+        ticker = SingleIntervalTicker(interval=4, num_minor_ticks=4)
+        p.xaxis.ticker = ticker
+        p.xgrid.ticker = p.xaxis.ticker
+
+        final_figure_layout.append(p)
+    return final_figure_layout
+
+
+def global_features_plotter(global_features_dict,
+                            title_prefix="ridgeplot",
+                            normalize_data=False,
+                            analyze_combined_sets=True,
+                            force_extract=False, plot_width=800, plot_height=1200, legend_fnt_size="8px",
+                            scale_y=False, resolution=1000, plot_with_complement=False):
+
+    """
+    Creates multiple bokeh figures each of which corresponds to a feature extractable from a HVO_Sequence object via
+    Feature_Extractor_From_HVO_Set object
+
+    :param feature_extractors_list:         list of Feature_Extractor_From_HVO_Set instances
+                                            each Feature_Extractor_From_HVO_Set instance corresponds to one
+                                            HVO_Sequence set
+    :param title_prefix:                    Prefix to title
+    :param normalize_data:                  Normalizes the extracted feature values using mean and std of values
+    :param analyze_combined_sets:           Adds an extra row which shows the feature information for
+                                            all the sets combined
+    :param force_extract:                   re-extracts features from the feature_extractor
+    :param plot_width:                      width of each feature plot
+    :param plot_height:                     height of each feature plot
+    :param legend_fnt_size:                 font size of legends
+    :param scale_y:                         if True, normalizes y-value of feature histograms to their max
+    :param resolution:                      number of points used for calculating the probability distribution (pdf)
+                                            using scipy.stats.kde.gaussian_kde
+    :param plot_with_complement:            For each subplot, creates an additional plot on the right,
+                                            this subplot shows the pdf of all the rows combined except that of the
+                                            feature itself (adding rows of left plot to right plot  gives the
+                                            same result)
+    :return:
+            a list of bokeh figures which can be externally plotted using show(grid(p, ncols=3))
+    """
+
+    # Extract features if not done already or force_extract required
+    # also get the major/minor features available in the feature set
+    # exp:  feat_major_fields   ["statistical", "micro-timing"]
+    #       feat_minor_fields   ["noi", "lowness", "swing"]
+
+    figure_layout = list()
+
+    # compile a list of major keys and minor keys
+    major_keys = []
+    minor_keys = []
+    for major_key in global_features_dict.keys():
+        major_keys.append(major_key)
+        for minor_key in global_features_dict[major_key].keys():
+            if minor_key not in minor_keys:
+                minor_keys.append(minor_key)
+
+    # Each bokeh figure will show a single features value across all sets (accessible via feature_extractors_list)
+    for major_key in major_keys:
+        data_list = list()
+        tags = list()
+        for minor_key in minor_keys:
+            if minor_key in global_features_dict[major_key].keys():
+                data_for_minor_key = global_features_dict[major_key][minor_key]
+                data_for_minor_key = np.where(np.isnan(data_for_minor_key), 0, data_for_minor_key)
+                data_for_minor_key = np.where(np.isinf(data_for_minor_key), 0, data_for_minor_key)
+                if data_for_minor_key.std()>0 and normalize_data is True:
+                    data_for_minor_key = (data_for_minor_key - data_for_minor_key.mean())/data_for_minor_key.std()
+                data_list.append(data_for_minor_key)
+                tags.append("{} ".format(minor_key))
+            # todo implement else section for filling zeros if key missing
+
+        title = "{} - {}".format(title_prefix, major_key)
+
+        # if requested to add another analysis containing all sets mixed together
+        if analyze_combined_sets is True and len(data_list)>=1:
+            combined_set = np.array([])
+            for x in data_list:
+                if x.size >= 1:
+                    combined_set = np.append(combined_set, x).flatten()
+            data_list.append(np.array(combined_set).flatten())
+            tags.append("{} ".format("Combined"))
+
+        if len(data_list) >= 1:
+            if plot_with_complement is True:
+                figure_layout.append(
+                    ridge_kde_multi_feature_with_complement_set(
+                        tags, data_list,
+                        title=title,
+                        resolution=resolution, plot_width=plot_width, plot_height=plot_height,
+                        legend_fnt_size=legend_fnt_size, scale_y=scale_y)
+                )
+            else:
+                figure_layout.append(
+                    ridge_kde_multi_feature(
+                        tags, data_list, resolution=resolution,
+                        plot_width=plot_width, plot_height=plot_height,
+                        title=title,
+                        legend_fnt_size=legend_fnt_size,
+                        plot_set_complement=False, scale_y=scale_y)
+                )
+
+    return figure_layout
+
+
+
+
+
 
 def multi_voice_velocity_profile_plotter(
         feature_extractors_list,
-        title_prefix = "",
-        drum_voice_keys = None,
+        title_prefix="",
+        drum_voice_keys=None,
         plot_width=1200, plot_height_per_set=400,legend_fnt_size="12px",
 ):
     """
@@ -83,6 +335,7 @@ def multi_voice_velocity_profile_plotter(
         number_of_unique_performances_in_sets.update({
             set_name: len(list(set(([hvo_seq.master_id for hvo_seq in feature_extractor.hvo_dataset]))))
         })
+
 
     # Create a color palette for plots
     n_sets = len(velocity_profile_dicts.keys())
@@ -319,12 +572,37 @@ def ridge_kde_multi_feature(tags, data_list, title="",
     # Create bokeh ColumnDataSource containing data structure
     source = ColumnDataSource(data=dict(x=x))
 
-    def ridge(category, data):
-        scale = (1/data.max()) if scale_y is True else 1
+    def ridge(category, data, scale=1):
+        # scale = (1/data.max()) if scale_y is True else 1
         return list(zip([category]*len(data), scale*data))
 
     p = figure(y_range=list(set(tags)), plot_width=plot_width, plot_height=plot_height)
 
+    pdfs = []
+    pdfs_max = []
+    # calculate pdfs and keep track of their max vals
+    for ix, data in enumerate(data_list):
+        if plot_set_complement is True:
+            complementary_data = np.array([])
+            for ix_ in range(n_sets):
+                if ix_ != ix:
+                    complementary_data = np.append(complementary_data, data_list[ix_].flatten())
+            data = complementary_data
+
+        # Find kernel bandwidth using Scott's Rule of Thumb
+        # https://en.wikipedia.org/wiki/Histogram#Scott's_normal_reference_rule
+        if data.mean() == 0.0 and data.std() == 0.0:
+            pdfs.append(np.nan)
+            pdfs_max.append(0)
+        else:
+            pdf = gaussian_kde(data)
+            pdfs.append(pdf(x))
+            pdfs_max.append(pdf(x).max())
+
+    max_value = np.nanmax(np.array(pdfs_max))
+    scale = 1.0 / max_value
+
+    # start plotting
     legend_it = []
     for ix, data in enumerate(data_list):
         if plot_set_complement is True:
@@ -340,8 +618,8 @@ def ridge_kde_multi_feature(tags, data_list, title="",
         if data.mean() == 0.0 and data.std() == 0.0:
             y = ridge(tags[ix], data)
         else:
-            pdf = gaussian_kde(data)
-            y = ridge(tags[ix], pdf(x))
+            y = ridge(tags[ix], pdfs[ix], scale)
+
         source.add(y, tag)
         legend_ = "{} ~ N({}, {})".format(tags[ix], round(data.mean(), 2), round(data.std(), 2))
         legend_ = ("~"+legend_ ) if plot_set_complement else legend_
