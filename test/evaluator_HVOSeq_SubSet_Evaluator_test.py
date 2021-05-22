@@ -2,15 +2,17 @@ import sys
 sys.path.insert(1, "../../")
 sys.path.insert(1, "../")
 import wandb
-from bokeh.embed import file_html
-from bokeh.resources import CDN
+
 
 from preprocessed_dataset.Subset_Creators import subsetters
-
-from GrooveEvaluator.evaluator import HVOSeq_SubSet_Evaluator
+# , Set_Sampler, convert_hvos_array_to_subsets
+from GrooveEvaluator.evaluator import HVOSeq_SubSet_Evaluator, Evaluator
 
 from bokeh.io import output_file, show, save
 
+
+pickle_source_path = "../preprocessed_dataset/datasets_extracted_locally/GrooveMidi/hvo_0.4.2/" \
+                     "Processed_On_17_05_2021_at_22_32_hrs"
 
 # Create Subset Filters
 styles = ["afrobeat", "afrocuban", "blues", "country", "dance", "funk", "gospel", "highlife", "hiphop", "jazz",
@@ -18,21 +20,49 @@ styles = ["afrobeat", "afrocuban", "blues", "country", "dance", "funk", "gospel"
 
 list_of_filter_dicts_for_subsets = []
 for style in styles:
-    list_of_filter_dicts_for_subsets.append({"style_primary": [style], "beat_type": ["beat"], "time_signature": ["4-4"]})
+    list_of_filter_dicts_for_subsets.append(
+        {"style_primary": [style], "beat_type": ["beat"], "time_signature": ["4-4"]}
+    )
 
-tags_by_style_and_beat, subsets_by_style_and_beat = subsetters.GrooveMidiSubsetter(
-    pickle_source_path="../preprocessed_dataset/datasets_extracted_locally/GrooveMidi/hvo_0.4.2/"
-                       "Processed_On_17_05_2021_at_22_32_hrs",
-    subset="GrooveMIDI_processed_train",
+train_set_sampler = subsetters.GrooveMidiSubsetterAndSampler(
+    pickle_source_path=pickle_source_path, subset="GrooveMIDI_processed_train",
     hvo_pickle_filename="hvo_sequence_data.obj",
     list_of_filter_dicts_for_subsets=list_of_filter_dicts_for_subsets,
-    max_len=32,
-    ).create_subsets()
+    number_of_samples=2048,
+    max_hvo_shape=(32, 27)
+    )
 
-train_ground_evaluator = HVOSeq_SubSet_Evaluator (
+test_set_sampler = subsetters.GrooveMidiSubsetterAndSampler(
+    pickle_source_path=pickle_source_path, subset="GrooveMIDI_processed_test",
+    hvo_pickle_filename="hvo_sequence_data.obj",
+    list_of_filter_dicts_for_subsets=list_of_filter_dicts_for_subsets,
+    number_of_samples=2048,
+    max_hvo_shape=(32, 27)
+    )
+
+# Get sampled subsets
+train_set_gt_tags, train_set_gt_subsets = train_set_sampler.get_subsets()
+test_set_gt_tags, test_set_gt_subsets = test_set_sampler.get_subsets()
+
+# Get the numpy array containing all sequences, along with other necessary fields
+train_set_hvos_tags_gt, train_set_hvos_array_gt, train_set_hvo_seq_templates = train_set_sampler.get_hvos_array()
+test_set_hvos_tags_gt, test_set_hvos_array_gt, test_set_hvo_seq_templates = test_set_sampler.get_hvos_array()
+
+# hvos_array --> pass through model to get predictions
+train_hvos_array_predicted = train_set_hvos_array_gt    # in reality: train_hvos_array_predicted=model.predict(hvos_array)
+test_hvos_array_predicted = test_set_hvos_array_gt      # in reality: test_hvos_array_predicted=model.predict(hvos_array)
+
+# create a subset of predictions
+train_set_pred_tags, train_set_pred_subsets = subsetters.convert_hvos_array_to_subsets(
+    train_set_hvos_tags_gt, train_hvos_array_predicted, train_set_hvo_seq_templates)
+test_set_pred_tags, test_set_pred_subsets = subsetters.convert_hvos_array_to_subsets(
+    test_set_hvos_tags_gt, test_hvos_array_predicted, test_set_hvo_seq_templates)
+
+
+train_gt_evaluator = HVOSeq_SubSet_Evaluator (
     set_subsets=subsets_by_style_and_beat,              # Ground Truth typically
     set_tags=tags_by_style_and_beat,
-    set_identifier="train_ground_truth",
+    set_identifier= "TRAIN",
     analyze_heatmap=True,
     analyze_global_features=True,
     n_samples_to_analyze=20,
@@ -43,42 +73,21 @@ train_ground_evaluator = HVOSeq_SubSet_Evaluator (
     group_by_minor_keys=False
 )
 
-'''p = train_ground_evaluator.get_global_features_bokeh_figure()
-save(p, "misc/{}.html".format("temp_global_features"))
+import pickle
+pickle.dump(train_ground_evaluator, open("temp.pk", "wb"))
 
-p = train_ground_evaluator.get_vel_heatmap_bokeh_figures()
-save(p, "misc/{}.html".format("temp_heatmap"))
+train_ground_evaluator.dump()
 
-captions_audios_tuples = train_ground_evaluator.get_audios(
-    sf_paths = ["../hvo_sequence/hvo_sequence/soundfonts/Standard_Drum_Kit.sf2"])'''
-
-wandb_dict = train_ground_evaluator.get_wandb_logging_dict(
+wandb_media_dict, wandb_features_data = train_ground_evaluator.get_wandb_logging_dicts(
     sf_paths=["../hvo_sequence/hvo_sequence/soundfonts/Standard_Drum_Kit.sf2"])
 
-wandb_log = {
-
-    "Velocity_Profile":
-        {
-            train_ground_evaluator.set_identifier:
-                [
-                    wandb.Html(file_html(wandb_dict["global_features_heatmaps"], CDN, "my plot"))
-                ]
-        },
-    "global_features_heatmaps":
-        {
-            train_ground_evaluator.set_identifier:
-                [
-                    wandb.Html(open("misc/{}.html".format("temp_global_features")))
-                ]
-        },
-    "Audios":
-        {
-            train_ground_evaluator.set_identifier:
-            [
-                wandb.Audio(c_a[1], caption=c_a[0], sample_rate=44100) for c_a in wandb_dict["captions_audios_tuples"]
-            ]
-        }
-}
-
 wandb.init(project="GMD Analysis", entity="behzadhaki")
-wandb.log(wandb_log)
+# wandb.log(wandb_log)
+data_log = {"epoch": 3}
+data_log.update(wandb_media_dict)
+data_log.update(wandb_features_data)
+wandb.log(data_log)
+
+wandb.log({"epoch": 2, "Train.Rock": {'Rock': .5}, "Train.Funk": 0.5, "Test/Loss": .1, })
+
+
