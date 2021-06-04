@@ -1,3 +1,12 @@
+![Groove Evaluator-4](https://user-images.githubusercontent.com/35939495/120794925-1e793600-c539-11eb-85e5-7ef7ce62e165.jpg)
+
+
+
+
+
+
+
+
 # drum_pattern_evaluator
 
 This repository provides a python tool to automatically compare two symbolic polyphonic rhythm dataset against each other using the methodology proposed by Yang and Lerch in [1]. 
