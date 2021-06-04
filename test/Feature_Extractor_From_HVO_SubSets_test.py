@@ -41,7 +41,7 @@ feature_extractors_for_subsets = Feature_Extractor_From_HVO_SubSets(
     hvo_subsets=subsets_by_style_and_beat,
     tags=tags_by_style_and_beat,
     auto_extract=True,
-    max_samples_in_subset=20
+    max_samples_in_subset=10000
 )
 feature_extractors_for_subsets.get_few_hvo_samples(10)
 
@@ -69,10 +69,11 @@ show(tabs)
 # HEATMAP PLOT TEST
 #####
 
+regroup_by_drum_voice = True
 heatmaps_dict, scatters_dict = feature_extractors_for_subsets.get_velocity_timing_heatmap_dicts(
     s=(4, 10),
     bins=[32*8, 127],
-    regroup_by_drum_voice=True)
+    regroup_by_drum_voice=regroup_by_drum_voice)
 #feature_dicts_grouped = feature_extractors_for_subsets.get_global_features_dicts()
 
 output_file("misc/{}.html".format("temp_heat"))
@@ -82,7 +83,7 @@ p = velocity_timing_heatmaps_scatter_plotter(
     scatters_dict,
     number_of_loops_per_subset_dict=feature_extractors_for_subsets.number_of_loops_in_sets,
     number_of_unique_performances_per_subset_dict=feature_extractors_for_subsets.number_of_unique_performances_in_sets,
-    organized_by_drum_voice=True,  # denotes that the first key in heatmap and dict corresponds to drum voices
+    organized_by_drum_voice=regroup_by_drum_voice,  # denotes that the first key in heatmap and dict corresponds to drum voices
     title_prefix="",
     plot_width=1200, plot_height_per_set=100, legend_fnt_size="8px",
     synchronize_plots=True,

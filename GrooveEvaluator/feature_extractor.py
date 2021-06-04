@@ -189,14 +189,19 @@ class Feature_Extractor_From_HVO_SubSets:
 
     def get_few_hvo_samples(self, num_samples):
         n_sets = len(self.hvo_subsets)
-        sample_hvos = []
+        sample_hvos = list()
+        corresponding_subset_indices, corresponding_sample_indices_in_subsets = list(), list()
+
         for ix in range(num_samples):
             # Grab a subset randomly (uniformly possible regardless of number of samples within)
             random_subset_ix = np.random.randint(0, n_sets)
+            corresponding_subset_indices.append(random_subset_ix)
             # grab a random sample from the selected subset
             random_sample_ix = np.random.randint(0, len(self.hvo_subsets[random_subset_ix]))
+            corresponding_sample_indices_in_subsets.append(random_sample_ix)
             sample_hvos.append(self.hvo_subsets[random_subset_ix][random_sample_ix])
-        return sample_hvos
+
+        return sample_hvos, corresponding_subset_indices, corresponding_sample_indices_in_subsets
 
 
 class Feature_Extractor_From_HVO_Set:
@@ -591,6 +596,7 @@ def convert_distances_dict_to_gaussian_pdfs(distances_dict):
                 distances_for_feat, bins="scott",
                 density=True
             )
+
 
 def convert_distances_dict_to_pdf_histograms_dict (distances_dict):
     distances_histograms = dict()
