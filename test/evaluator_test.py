@@ -10,7 +10,7 @@ from GrooveEvaluator.evaluator import Evaluator
 
 from bokeh.io import output_file, show, save
 
-wandb_run = wandb.init(project="GMD Analysis2", entity="behzadhaki")
+wandb_run = wandb.init(project="GMD Analysis3", entity="behzadhaki")
 
 pickle_source_path = "../preprocessed_dataset/datasets_extracted_locally/GrooveMidi/hvo_0.4.3/" \
                      "Processed_On_04_06_2021_at_17_38_hrs"
@@ -31,8 +31,8 @@ train_set_evaluator = Evaluator(
     hvo_pickle_filename="hvo_sequence_data.obj",
     list_of_filter_dicts_for_subsets=list_of_filter_dicts_for_subsets,
     max_hvo_shape=(32, 27),
-    n_samples_to_use=128,
-    n_samples_to_synthesize_visualize_per_subset=5,
+    n_samples_to_use=2048,
+    n_samples_to_synthesize_visualize_per_subset=10,
     disable_tqdm=False,
     analyze_heatmap=True,
     analyze_global_features=True
@@ -63,11 +63,10 @@ rhythmic_distances = train_set_evaluator.get_rhythmic_distances()
 wandb.log(rhythmic_distances, commit=False)
 
 # Get Heatmaps/Features per gt or predicted
-gt_log_dict, predicted_log_dict = train_set_evaluator.get_wandb_logging_media()
-if gt_log_dict is not None:
-    wandb.log(gt_log_dict, commit=False)
-if predicted_log_dict is not None:
-    wandb.log(predicted_log_dict, commit=False)
+heatmaps_global_features = train_set_evaluator.get_wandb_logging_media()
+if len(heatmaps_global_features.keys()) > 0:
+    wandb.log(heatmaps_global_features, commit=False)
+
 
 epoch = 1
 wandb.log({"epoch": epoch})

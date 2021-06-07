@@ -157,7 +157,7 @@ class Evaluator:
             )
             self._gt_logged_once_wandb = True
         else:
-            gt_logging_media = None
+            gt_logging_media = {}
 
         predicted_logging_media = self.prediction_SubSet_Evaluator.get_wandb_logging_media(
             velocity_heatmap_html=velocity_heatmap_html,
@@ -166,9 +166,18 @@ class Evaluator:
             audio_files=audio_files,
             sf_paths=sf_paths,
             use_specific_samples_at=self.audio_sample_locations
-        ) if self.prediction_SubSet_Evaluator is not None else None
+        ) if self.prediction_SubSet_Evaluator is not None else {}
 
-        return gt_logging_media, predicted_logging_media
+        results = {x: {} for x in gt_logging_media.keys()}
+        results.update({x: {} for x in predicted_logging_media.keys()})
+
+        for key in results.keys():
+            if key in gt_logging_media.keys():
+                results[key].update(gt_logging_media[key])
+            if key in predicted_logging_media.keys():
+                results[key].update(predicted_logging_media[key])
+
+        return results
 
     def get_hits_accuracies(self, drum_mapping):
         n_drum_voices = len(drum_mapping.keys())
@@ -289,8 +298,8 @@ class Evaluator:
     def dump(self, path=None, auto_zip=True):          # todo implement in comparator
         if path is None:
             path = os.path.join("misc", self._identifier)
-        if not os.path.exists(path):
-            os.makedirs(path)
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
 
         fname = os.path.join(path, "evaluator.Eval") if ".Eval" not in path else path
 
