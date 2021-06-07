@@ -13,6 +13,8 @@ from bokeh.sampledata.perceptions import probly
 
 from bokeh.layouts import layout, column, row
 
+from bokeh.models.annotations import Title
+
 import numpy as np
 from bokeh.models.widgets import Tabs, Panel
 
@@ -142,7 +144,9 @@ def velocity_timing_heatmaps_scatter_plotter(
         else:
             p = figure(plot_width=plot_width, plot_height=plot_height, x_range=p.x_range, y_range=p.y_range, title=None)
 
-        p.title = major_titles[major_ix]
+        t = Title()
+        t.text = major_titles[major_ix]
+        p.title = t
 
         for minor_ix, minor_key in enumerate(minor_keys):
             scatter_times, scatter_vels = scatters_dict[major_key][minor_key]
@@ -641,7 +645,9 @@ def ridge_kde_multi_feature(tags, data_list, title="",
         legend_ = ("~"+legend_ ) if plot_set_complement else legend_
         c = p.patch('x', tags[ix], alpha=0.6, color=palette[ix], line_color="black", source=source)
         legend_it.append((legend_, [c]))
-        p.title=title
+        t = Title()
+        t.text = title
+        p.title = t
 
     legend = Legend(items=legend_it)
     legend.label_text_font_size = legend_fnt_size
