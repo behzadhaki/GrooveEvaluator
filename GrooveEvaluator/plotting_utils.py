@@ -518,6 +518,8 @@ def multi_feature_plotter(feature_extractors_list, title_prefix="ridgeplot", nor
 
     return figure_layout
 
+def is_invertible(a):
+    return a.shape[0] == a.shape[1] and np.linalg.matrix_rank(a) == a.shape[0]
 
 def ridge_kde_multi_feature(tags, data_list, title="",
                         resolution=1000,
@@ -592,15 +594,26 @@ def ridge_kde_multi_feature(tags, data_list, title="",
         # Find kernel bandwidth using Scott's Rule of Thumb
         # https://en.wikipedia.org/wiki/Histogram#Scott's_normal_reference_rule
         if data.mean() == 0.0 and data.std() == 0.0:
-            pdfs.append(np.nan)
+            pdf = np.zeros(100)
+            pdfs.append(pdf)
             pdfs_max.append(0)
         else:
-            pdf = gaussian_kde(data)
-            pdfs.append(pdf(x))
-            pdfs_max.append(pdf(x).max())
+            if data.min() != data.max():
+                try:
+                    pdf = gaussian_kde(data)
+                    pdfs.append(pdf(x))
+                    pdfs_max.append(pdf(x).max())
+                except:
+                    pdf = np.zeros(100)
+                    pdfs.append(pdf)
+                    pdfs_max.append(0)
+            else:
+                pdf = np.zeros(100)
+                pdfs.append(pdf)
+                pdfs_max.append(0)
 
     max_value = np.nanmax(np.array(pdfs_max))
-    scale = 1.0 / max_value
+    scale = 1 if max_value == 0 else 1.0 / max_value
 
     # start plotting
     legend_it = []
@@ -614,13 +627,16 @@ def ridge_kde_multi_feature(tags, data_list, title="",
 
         # Find kernel bandwidth using Scott's Rule of Thumb
         # https://en.wikipedia.org/wiki/Histogram#Scott's_normal_reference_rule
+
         tag = tags[ix]
+
         if data.mean() == 0.0 and data.std() == 0.0:
             y = ridge(tags[ix], data)
         else:
             y = ridge(tags[ix], pdfs[ix], scale)
 
         source.add(y, tag)
+
         legend_ = "{} ~ N({}, {})".format(tags[ix], round(data.mean(), 2), round(data.std(), 2))
         legend_ = ("~"+legend_ ) if plot_set_complement else legend_
         c = p.patch('x', tags[ix], alpha=0.6, color=palette[ix], line_color="black", source=source)

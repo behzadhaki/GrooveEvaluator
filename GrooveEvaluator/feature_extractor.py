@@ -266,24 +266,16 @@ class Feature_Extractor_From_HVO_Set:
             should_extract.append(True)
 
         if any(should_extract):
-            if use_tqdm:
-                for ix in tqdm(range(len(self.hvo_dataset)), desc="Extracting Features from HVO_Sequence Set"):
-                    sample_hvo = self.hvo_dataset[ix]
-                    self.update_statistical_features(sample_hvo)        # 593.00it/s
-                    self.update_syncopation_features(sample_hvo)         # 167.00it/s
-                    self.update_autocorrelation_features(sample_hvo)        # 1320.64it/s
-                    self.update_microtiming_features(sample_hvo)            # 6.11it/s
-                                                                            # 3675.27it/s for swingness
-                                                                            # 15.00 it/s for laidbackness
-                                                                            # improved 15.00 it/s to 4101 for Accuracy
-
-            else:
-                for ix in range(len(self.hvo_dataset)):
-                    sample_hvo = self.hvo_dataset[ix]
-                    self.update_statistical_features(sample_hvo)
-                    self.update_syncopation_features(sample_hvo)
-                    self.update_autocorrelation_features(sample_hvo)
-                    self.update_microtiming_features(sample_hvo)
+            for ix in tqdm(range(len(self.hvo_dataset)), desc="Extracting Features from {}".format(self.name),
+                           disable=(not use_tqdm)):
+                sample_hvo = self.hvo_dataset[ix]
+                self.update_statistical_features(sample_hvo)        # 593.00it/s
+                self.update_syncopation_features(sample_hvo)         # 167.00it/s
+                self.update_autocorrelation_features(sample_hvo)        # 1320.64it/s
+                self.update_microtiming_features(sample_hvo)            # 6.11it/s
+                                                                        # 3675.27it/s for swingness
+                                                                        # 15.00 it/s for laidbackness
+                                                                        # improved 15.00 it/s to 4101 for Accuracy
 
     def extract_pdf(self, use_tqdm=True, force_extract=False):
         self.extract(use_tqdm=use_tqdm, force_extract=force_extract)

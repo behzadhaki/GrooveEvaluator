@@ -14,13 +14,14 @@ from preprocessed_dataset.Subset_Creators import subsetters
 from copy import deepcopy
 import pickle as pk
 import os
+from tqdm import tqdm
 
 import warnings
 
 import sys
 sys.path.insert(1, "../../")
 sys.path.insert(1, "../")
-
+import copy
 
 class Evaluator:
     # Eval 1. Test set loss
@@ -93,13 +94,14 @@ class Evaluator:
         self.gt_SubSet_Evaluator = HVOSeq_SubSet_Evaluator(
             self._gt_subsets,              # Ground Truth typically
             self._gt_tags,
-            "{}_Set_Ground Truth".format(self._identifier),             # a name for the subset
+            "{}_Set_Ground_Truth".format(self._identifier),             # a name for the subset
             disable_tqdm=self.disable_tqdm,
             group_by_minor_keys=True)
 
         # Empty place holder for predictions, also Placeholder Subset evaluator for predicted data
         self._prediction_tags, self._prediction_subsets = None, None
         self.prediction_SubSet_Evaluator = None
+        self._prediction_hvos_array = None
 
         # Get the index for the samples that will be synthesized and also for which the piano-roll can be generated
         self.audio_sample_locations = self.get_sample_indices(n_samples_to_synthesize_visualize_per_subset)
@@ -107,6 +109,7 @@ class Evaluator:
         self._gt_logged_once = False             # Flag will be set to True when ground truth data is once evaluated
         self._gt_logged_once_wandb = False       # Flag will be set to True when ground truth data is once evaluated
                                                     # for WANDB
+
 
     def get_logging_dict(self, velocity_heatmap_html=True, global_features_html=True,
                          piano_roll_html=True, audio_files=True,
@@ -152,6 +155,7 @@ class Evaluator:
                 sf_paths=sf_paths,
                 use_specific_samples_at=self.audio_sample_locations
             )
+            self._gt_logged_once_wandb = True
         else:
             gt_logging_media = None
 
@@ -164,8 +168,71 @@ class Evaluator:
             use_specific_samples_at=self.audio_sample_locations
         ) if self.prediction_SubSet_Evaluator is not None else None
 
-
         return gt_logging_media, predicted_logging_media
+
+    def get_hits_accuracies(self, drum_mapping):
+        n_drum_voices = len(drum_mapping.keys())
+        gt = self._gt_hvos_array[:, :, :n_drum_voices]
+        pred = self._prediction_hvos_array[:, :, :n_drum_voices]
+        n_examples = gt.shape[0]
+        # Flatten
+        accuracies = {"Hits_Accuracy": {self._identifier: {}}}
+        for i, drum_voice in enumerate(drum_mapping.keys()):
+            _gt = gt[:, :, i]
+            _pred = pred[:, :, i]
+            n_hits = _gt.shape[-1]
+            accuracies["Hits_Accuracy"][self._identifier].update({"{}".format(drum_voice, self._identifier):
+                                   ((_gt == _pred).sum(axis=-1) / n_hits).mean()})
+
+
+        gt = gt.reshape((n_examples, -1))
+        pred = pred.reshape((n_examples, -1))
+        n_hits = gt.shape[-1]
+        accuracies["Hits_Accuracy"][self._identifier].update(
+            {"Overall".format(self._identifier): ((gt == pred).sum(axis=-1) / n_hits).mean()})
+
+        return accuracies
+
+    def get_velocity_errors(self, drum_mapping):
+        n_drum_voices = len(drum_mapping.keys())
+        gt = self._gt_hvos_array[:, :, n_drum_voices:2*n_drum_voices]
+        pred = self._prediction_hvos_array[:, :,  n_drum_voices:2*n_drum_voices]
+
+        n_examples = gt.shape[0]
+        # Flatten
+        errors = {"Velocity_MSE": {self._identifier: {}}}
+        for i, drum_voice in enumerate(drum_mapping.keys()):
+            _gt = gt[:, :, i]
+            _pred = pred[:, :, i]
+            errors["Velocity_MSE"][self._identifier].update({"{}".format(drum_voice, self._identifier):
+                                                                      (((_gt - _pred)**2).mean(axis=-1)).mean()})
+
+        gt = gt.reshape((n_examples, -1))
+        pred = pred.reshape((n_examples, -1))
+        errors["Velocity_MSE"][self._identifier].update(
+            {"Overall".format(self._identifier): (((gt - pred)**2).mean(axis=-1)).mean()})
+
+        return errors
+
+    def get_micro_timing_errors(self, drum_mapping):
+        n_drum_voices = len(drum_mapping.keys())
+        gt = self._gt_hvos_array[:, :, 2*n_drum_voices:]
+        pred = self._prediction_hvos_array[:, :, 2*n_drum_voices:]
+        n_examples = gt.shape[0]
+        # Flatten
+        errors = {"Micro_Timing_MSE": {self._identifier: {}}}
+        for i, drum_voice in enumerate(drum_mapping.keys()):
+            _gt = gt[:, :, i]
+            _pred = pred[:, :, i]
+            errors["Micro_Timing_MSE"][self._identifier].update({"{}".format(drum_voice, self._identifier):
+                                                                      (((_gt - _pred)**2).mean(axis=-1)).mean()})
+
+        gt = gt.reshape((n_examples, -1))
+        pred = pred.reshape((n_examples, -1))
+        errors["Micro_Timing_MSE"][self._identifier].update(
+            {"Overall".format(self._identifier): (((gt - pred)**2).mean(axis=-1)).mean()})
+
+        return errors
 
     def get_rhythmic_distances(self):
         gt_set = {self._gt_tags[ix]: subset for ix, subset in enumerate(self._gt_subsets)}
@@ -173,7 +240,10 @@ class Evaluator:
 
         distances_dict = None
 
-        for tag in predicted_set.keys():
+        for tag in tqdm(predicted_set.keys(),
+                        desc='Calculating Rhythmic Distances - {}'.format(self._identifier),
+                        disable=self.disable_tqdm
+                        ):
             for sample_ix, predicted_sample_hvo in enumerate(predicted_set[tag]):
                 distances_dictionary = predicted_sample_hvo.calculate_all_distances_with(gt_set[tag][sample_ix])
 
@@ -195,12 +265,13 @@ class Evaluator:
         return distances_dict
 
     def get_ground_truth_hvo_sequences(self):
-        return self._gt_hvo_sequences
+        return copy.deepcopy(self._gt_hvo_sequences)
 
     def get_ground_truth_hvos_array(self):
-        return self._gt_hvos_array
+        return copy.deepcopy(self._gt_hvos_array)
 
     def add_predictions(self, prediction_hvos_array):
+        self._prediction_hvos_array = prediction_hvos_array
         self._prediction_tags, self._prediction_subsets = \
             subsetters.convert_hvos_array_to_subsets(
                 self._gt_hvos_array_tags,
@@ -221,7 +292,8 @@ class Evaluator:
         if not os.path.exists(path):
             os.makedirs(path)
 
-        fname = os.path.join(path, "evaluator.Eval")
+        fname = os.path.join(path, "evaluator.Eval") if ".Eval" not in path else path
+
         f = open(fname, "wb")
         pk.dump(self, f)
 
@@ -417,7 +489,9 @@ class HVOSeq_SubSet_Evaluator (object):
         audios = []
         captions = []
 
-        for key in self._sampled_hvos.keys():
+        for key in tqdm(self._sampled_hvos.keys(),
+                        desc='Synthesizing samples - {} '.format(self.set_identifier),
+                        disable=self.disable_tqdm):
             for sample_hvo in self._sampled_hvos[key]:
                 # randomly select a sound font
                 sf_path = sf_paths[np.random.randint(0, len(sf_paths))]
@@ -434,7 +508,9 @@ class HVOSeq_SubSet_Evaluator (object):
         self._sampled_hvos = self.get_hvo_samples_located_at(use_specific_samples_at)
         tab_titles = []
         piano_roll_tabs = []
-        for subset_ix, tag in enumerate(self._sampled_hvos.keys()):
+        for subset_ix, tag in tqdm(enumerate(self._sampled_hvos.keys()),
+                                   desc='Creating Piano rolls for '+ self.set_identifier,
+                                   disable=self.disable_tqdm):
             piano_rolls = []
             for sample_hvo in self._sampled_hvos[tag]:
                 title = "{}_{}_{}".format(
@@ -492,7 +568,7 @@ class HVOSeq_SubSet_Evaluator (object):
             if velocity_heatmap_html is True and key in "velocity_heatmaps":
                 wandb_media_dict.update(
                     {
-                        "{}_velocity_heatmaps".format(self.set_identifier):
+                        "velocity_heatmaps":
                             {
                             self.set_identifier:
                                 wandb.Html(file_html(
@@ -504,7 +580,7 @@ class HVOSeq_SubSet_Evaluator (object):
             if global_features_html is True and key in "global_feature_pdfs":
                 wandb_media_dict.update(
                     {
-                        "{}_global_feature_pdfs".format(self.set_identifier):
+                        "global_feature_pdfs":
                             {
                                 self.set_identifier:
                                     wandb.Html(file_html(
@@ -517,7 +593,7 @@ class HVOSeq_SubSet_Evaluator (object):
                 captions_audios_tuples = logging_dict["captions_audios"]
                 wandb_media_dict.update(
                     {
-                        "{}_audios".format(self.set_identifier):
+                        "audios":
                             {
                                 self.set_identifier:
                                     [
@@ -531,10 +607,11 @@ class HVOSeq_SubSet_Evaluator (object):
             if piano_roll_html is True and key in "piano_rolls":
                 wandb_media_dict.update(
                     {
-                        self.set_identifier:
+                        "piano_roll_html":
                             {
-                                "{}_piano_roll_html".format(self.set_identifier): wandb.Html(file_html(
-                                    logging_dict["piano_rolls"], CDN, "piano_rolls_"+self.set_identifier))
+                                self.set_identifier:
+                                    wandb.Html(file_html(
+                                        logging_dict["piano_rolls"], CDN, "piano_rolls_"+self.set_identifier))
                             }
                     }
                 )
