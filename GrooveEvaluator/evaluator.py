@@ -144,8 +144,8 @@ class Evaluator:
 
     def get_wandb_logging_media(self, velocity_heatmap_html=True, global_features_html=True,
                          piano_roll_html=True, audio_files=True,
-                         sf_paths=["../hvo_sequence/hvo_sequence/soundfonts/Standard_Drum_Kit.sf2"],
-                         recalculate_ground_truth=True):
+                         use_custom_sf = False, sf_paths=[
+                "../hvo_sequence/hvo_sequence/soundfonts/Standard_Drum_Kit.sf2"], recalculate_ground_truth=True):
 
         # Get logging data for ground truth data
         if recalculate_ground_truth is True or self._gt_logged_once_wandb is False:
@@ -156,6 +156,7 @@ class Evaluator:
                 piano_roll_html=piano_roll_html,
                 audio_files=audio_files,
                 sf_paths=sf_paths,
+                use_custom_sf=use_custom_sf,
                 use_specific_samples_at=self.audio_sample_locations
             )
             self._gt_logged_once_wandb = True
@@ -168,6 +169,7 @@ class Evaluator:
             piano_roll_html=piano_roll_html,
             audio_files=audio_files,
             sf_paths=sf_paths,
+            use_custom_sf=use_custom_sf,
             use_specific_samples_at=self.audio_sample_locations
         ) if self.prediction_SubSet_Evaluator is not None else {}
 
@@ -489,7 +491,7 @@ class HVOSeq_SubSet_Evaluator (object):
         else:
             return self._sampled_hvos
 
-    def get_audios(self, sf_paths, use_specific_samples_at=None):
+    def get_audios(self, sf_paths, use_custom_sf=False, use_specific_samples_at=None):
         """ use_specific_samples_at: must be a list of tuples of (subset_ix, sample_ix) denoting to get
         audio from the sample_ix in subset_ix """
 
@@ -504,9 +506,12 @@ class HVOSeq_SubSet_Evaluator (object):
         for key in tqdm(self._sampled_hvos.keys(),
                         desc='Synthesizing samples - {} '.format(self.set_identifier),
                         disable=self.disable_tqdm):
-            for sample_hvo in self._sampled_hvos[key]:
-                # randomly select a sound font
-                sf_path = sf_paths[np.random.randint(0, len(sf_paths))]
+            for idx, sample_hvo in enumerate(self._sampled_hvos[key]):
+                if use_custom_sf:
+                    sf_path = sf_paths[idx]
+                else:
+                    # randomly select a sound font
+                    sf_path = sf_paths[np.random.randint(0, len(sf_paths))]
                 audios.append(sample_hvo.synthesize(sf_path=sf_path))
                 captions.append("{}_{}_{}.wav".format(
                     self.set_identifier, sample_hvo.metadata.style_primary, sample_hvo.metadata.master_id.replace("/", "_")
@@ -551,7 +556,8 @@ class HVOSeq_SubSet_Evaluator (object):
         return wandb_features_data
 
     def get_logging_dict(self, velocity_heatmap_html=True, global_features_html=True,
-                         piano_roll_html=True, audio_files=True, sf_paths=None, use_specific_samples_at=None):
+                         piano_roll_html=True, audio_files=True, sf_paths=None,
+                         use_custom_sf=False, use_specific_samples_at=None):
         if audio_files is True:
             assert sf_paths is not None, "Provide sound_file path(s) for synthesizing samples"
 
@@ -561,7 +567,7 @@ class HVOSeq_SubSet_Evaluator (object):
         if global_features_html is True:
             logging_dict.update({"global_feature_pdfs": self.get_global_features_bokeh_figure()})
         if audio_files is True:
-            captions_audios_tuples = self.get_audios(sf_paths, use_specific_samples_at)
+            captions_audios_tuples = self.get_audios(sf_paths, use_custom_sf, use_specific_samples_at)
             captions_audios = [(c_a[0], c_a[1]) for c_a in captions_audios_tuples]
             logging_dict.update({"captions_audios": captions_audios})
         if piano_roll_html is True:
@@ -570,10 +576,12 @@ class HVOSeq_SubSet_Evaluator (object):
         return logging_dict
 
     def get_wandb_logging_media(self, velocity_heatmap_html=True, global_features_html=True,
-                                piano_roll_html=True, audio_files=True, sf_paths=None, use_specific_samples_at=None):
+                                piano_roll_html=True, audio_files=True, sf_paths=None,
+                                use_custom_sf = False, use_specific_samples_at=None):
 
         logging_dict = self.get_logging_dict(velocity_heatmap_html, global_features_html,
-                                             piano_roll_html, audio_files, sf_paths, use_specific_samples_at)
+                                             piano_roll_html, audio_files, sf_paths, use_custom_sf,
+                                             use_specific_samples_at)
 
         wandb_media_dict = {}
         for key in logging_dict.keys():
