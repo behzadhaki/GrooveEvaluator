@@ -9,7 +9,10 @@ from GrooveEvaluator.plotting_utils import separate_figues_by_tabs
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
-from preprocessed_dataset.Subset_Creators import subsetters
+import sys
+sys.path.insert(1, "../../preprocessed_dataset/")
+sys.path.insert(1, "../preprocessed_dataset/")
+from Subset_Creators import subsetters
 
 from copy import deepcopy
 import pickle as pk
