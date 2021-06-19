@@ -97,7 +97,7 @@ class Evaluator:
         self.gt_SubSet_Evaluator = HVOSeq_SubSet_Evaluator(
             self._gt_subsets,              # Ground Truth typically
             self._gt_tags,
-            "{}_Set_Ground_Truth".format(self._identifier),             # a name for the subset
+            "{}_Ground_Truth".format(self._identifier),             # a name for the subset
             disable_tqdm=self.disable_tqdm,
             group_by_minor_keys=True)
 
@@ -294,7 +294,7 @@ class Evaluator:
         self.prediction_SubSet_Evaluator = HVOSeq_SubSet_Evaluator(
             self._prediction_subsets,
             self._prediction_tags,
-            "{}_Set_Predictions".format(self._identifier),             # a name for the subset
+            "{}_Predictions".format(self._identifier),             # a name for the subset
             disable_tqdm=self.disable_tqdm,
             group_by_minor_keys=True)
 
