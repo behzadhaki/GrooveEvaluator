@@ -313,6 +313,7 @@ class Evaluator:
             zipObj = zipfile.ZipFile(fname.replace(".Eval", ".zip"), 'w')
             zipObj.write(fname)
             zipObj.close()
+            f.close()
             os.remove(fname)
 
     def get_sample_indices(self, n_samples_per_subset=20):
