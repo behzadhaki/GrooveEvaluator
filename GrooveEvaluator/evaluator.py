@@ -449,7 +449,7 @@ class HVOSeq_SubSet_Evaluator (object):
     ):
 
         # order
-        tags = self.tags_subsets[0]
+        tags = copy.deepcopy(self.tags_subsets[0])
         tags.sort()
 
         _vel_heatmaps_dict = {x: {} for x in  self.vel_heatmaps_dict.keys()}
