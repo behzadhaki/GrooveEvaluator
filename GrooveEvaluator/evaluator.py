@@ -438,6 +438,7 @@ class HVOSeq_SubSet_Evaluator (object):
             regroup_by_drum_voice=self.group_by_minor_keys
         ) if self.analyze_heatmap else None
 
+
         # todo
         #self.global_features_dict = self.feature_extractor.
 
@@ -513,6 +514,11 @@ class HVOSeq_SubSet_Evaluator (object):
                     self.set_identifier, sample_hvo.metadata.style_primary, sample_hvo.metadata.master_id.replace("/", "_")
                 ))
 
+        # sort so that they are alphabetically ordered in wandb
+        sort_index = np.argsort(captions)
+        captions = np.array(captions)[sort_index].tolist()
+        audios = np.array(audios)[sort_index].tolist()
+
         return list(zip(captions, audios))
 
     def get_piano_rolls(self, use_specific_samples_at=None):
@@ -532,6 +538,11 @@ class HVOSeq_SubSet_Evaluator (object):
                 piano_rolls.append(sample_hvo.to_html_plot(filename=title))
             piano_roll_tabs.append(separate_figues_by_tabs(piano_rolls, [str(x) for x in range(len(piano_rolls))]))
             tab_titles.append(tag)
+
+        # sort so that they are alphabetically ordered in wandb
+        sort_index = np.argsort(tab_titles)
+        tab_titles = np.array(tab_titles)[sort_index].tolist()
+        piano_roll_tabs = np.array(piano_roll_tabs)[sort_index].tolist()
 
         return separate_figues_by_tabs(piano_roll_tabs, [tag for tag in tab_titles])
 
