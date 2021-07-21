@@ -447,6 +447,22 @@ class HVOSeq_SubSet_Evaluator (object):
             synchronize_plots=True,
             downsample_heat_maps_by=1
     ):
+
+        # order
+        tags = self.tags_subsets[0]
+        tags.sort()
+
+        _vel_heatmaps_dict = {x: {} for x in  self.vel_heatmaps_dict.keys()}
+        _vel_scatters_dict = {x: {} for x in  self.vel_scatters_dict.keys()}
+
+        for inst in self.vel_heatmaps_dict.keys():
+            for tag in tags:
+                _vel_heatmaps_dict[inst][tag] = self.vel_heatmaps_dict[inst][tag]
+                _vel_scatters_dict[inst][tag] = self.vel_scatters_dict[inst][tag]
+
+        self.vel_heatmaps_dict = _vel_heatmaps_dict
+        self.vel_scatters_dict = _vel_scatters_dict
+
         p = velocity_timing_heatmaps_scatter_plotter(
             self.vel_heatmaps_dict,
             self.vel_scatters_dict,
