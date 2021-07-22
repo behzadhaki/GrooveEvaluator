@@ -438,6 +438,7 @@ class HVOSeq_SubSet_Evaluator (object):
             regroup_by_drum_voice=self.group_by_minor_keys
         ) if self.analyze_heatmap else None
 
+
         # todo
         #self.global_features_dict = self.feature_extractor.
 
@@ -446,6 +447,22 @@ class HVOSeq_SubSet_Evaluator (object):
             synchronize_plots=True,
             downsample_heat_maps_by=1
     ):
+
+        # order
+        tags = copy.deepcopy(self.tags_subsets[0])
+        tags.sort()
+
+        _vel_heatmaps_dict = {x: {} for x in  self.vel_heatmaps_dict.keys()}
+        _vel_scatters_dict = {x: {} for x in  self.vel_scatters_dict.keys()}
+
+        for inst in self.vel_heatmaps_dict.keys():
+            for tag in tags:
+                _vel_heatmaps_dict[inst][tag] = self.vel_heatmaps_dict[inst][tag]
+                _vel_scatters_dict[inst][tag] = self.vel_scatters_dict[inst][tag]
+
+        self.vel_heatmaps_dict = _vel_heatmaps_dict
+        self.vel_scatters_dict = _vel_scatters_dict
+
         p = velocity_timing_heatmaps_scatter_plotter(
             self.vel_heatmaps_dict,
             self.vel_scatters_dict,
@@ -513,6 +530,11 @@ class HVOSeq_SubSet_Evaluator (object):
                     self.set_identifier, sample_hvo.metadata.style_primary, sample_hvo.metadata.master_id.replace("/", "_")
                 ))
 
+        # sort so that they are alphabetically ordered in wandb
+        sort_index = np.argsort(captions)
+        captions = np.array(captions)[sort_index].tolist()
+        audios = np.array(audios)[sort_index].tolist()
+
         return list(zip(captions, audios))
 
     def get_piano_rolls(self, use_specific_samples_at=None):
@@ -532,6 +554,11 @@ class HVOSeq_SubSet_Evaluator (object):
                 piano_rolls.append(sample_hvo.to_html_plot(filename=title))
             piano_roll_tabs.append(separate_figues_by_tabs(piano_rolls, [str(x) for x in range(len(piano_rolls))]))
             tab_titles.append(tag)
+
+        # sort so that they are alphabetically ordered in wandb
+        sort_index = np.argsort(tab_titles)
+        tab_titles = np.array(tab_titles)[sort_index].tolist()
+        piano_roll_tabs = np.array(piano_roll_tabs)[sort_index].tolist()
 
         return separate_figues_by_tabs(piano_roll_tabs, [tag for tag in tab_titles])
 
