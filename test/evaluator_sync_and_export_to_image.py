@@ -107,14 +107,19 @@ heatmaps_per_epochs = [velocity_heatmap_epoch1, velocity_heatmap_epoch2]
 n_tabs = len(velocity_heatmap_epoch1.tabs[0].child.tabs)
 
 n_epochs = 2
+hide_scatters = True
+
 for epoch in range(n_epochs):
     for tab_ix in range(n_tabs):
+        if hide_scatters == True:
+            del heatmaps_per_epochs[epoch].tabs[0].child.tabs[tab_ix].child.renderers[::2]
+
+        voice = heatmaps_per_epochs[epoch].tabs[0].child.tabs[tab_ix].title
         heatmaps_per_epochs[epoch].tabs[0].child.tabs[tab_ix].child.y_range = Range1d(0, 1480)
         heatmaps_per_epochs[epoch].tabs[0].child.tabs[tab_ix].child.x_range = Range1d(0, 32)
 
         export_png(heatmaps_per_epochs[epoch].tabs[0].child.tabs[tab_ix].child,
-                   filename="./misc/sample_exports/velo_heatmap_voice_{}_epoch_{}.png".format(tab_ix, epoch))
-
+                   filename="./misc/sample_exports/velo_heatmap_voice_{}_epoch_{}.png".format(voice, epoch))
 
 
 # ###################
@@ -135,17 +140,16 @@ heatmaps_per_epochs = [global_feature_pdf_epoch1, global_feature_pdf_epoch2]
 
 n_epochs = 2
 for epoch in range(n_epochs):
-    print("epoch ", epoch)
     for major_tab_ix in range(len(heatmaps_per_epochs[epoch].tabs)):
-        print("major_tab_ix ", major_tab_ix)
+        major_title = heatmaps_per_epochs[epoch].tabs[major_tab_ix].title
         for tab_ix in range(len(global_feature_pdf_epoch1.tabs[major_tab_ix].child.tabs)):
-            print("tab_ix ", tab_ix)
+            feature_title = heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs[tab_ix].title
             if len(heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs)>=1:
                 #heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs[tab_ix].child.y_range = Range1d(0, 20)
                 #heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs[tab_ix].child.x_range = Range1d(-10, 10)
                 try:
                     export_png(heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs[tab_ix].child,
-                               filename="./misc/sample_exports/global_features_feat_group_{}_feature_{}_epoch_{}.png".format(major_tab_ix, tab_ix, epoch))
+                               filename="./misc/sample_exports/{}_{}_epoch_{}.png".format(major_title, feature_title, epoch))
                 except:
                     continue
 
