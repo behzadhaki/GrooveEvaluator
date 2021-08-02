@@ -130,17 +130,23 @@ global_feature_pdf_epoch2 = _pred_heatmaps_epoch2_dict["global_feature_pdfs"]
 heatmaps_per_epochs = [global_feature_pdf_epoch1, global_feature_pdf_epoch2]
 
 ### Step 2. Syncronize tabs in second heatmap to first one
-### Step 3. Export PNGs
+### Step 3. Export PNGs a
 
-n_tabs = len(global_feature_pdf_epoch1.tabs[0].child.tabs)
 
 n_epochs = 2
 for epoch in range(n_epochs):
-    for tab_ix in range(n_tabs):
-        heatmaps_per_epochs[epoch].tabs[0].child.tabs[tab_ix].child.y_range = Range1d(0, 1480)
-        heatmaps_per_epochs[epoch].tabs[0].child.tabs[tab_ix].child.x_range = Range1d(0, 32)
-        export_png(heatmaps_per_epochs[epoch].tabs[0].child.tabs[tab_ix].child,
-                   filename="./misc/sample_exports/global_features_voice_{}_epoch_{}.png".format(tab_ix, epoch))
-
+    print("epoch ", epoch)
+    for major_tab_ix in range(len(heatmaps_per_epochs[epoch].tabs)):
+        print("major_tab_ix ", major_tab_ix)
+        for tab_ix in range(len(global_feature_pdf_epoch1.tabs[major_tab_ix].child.tabs)):
+            print("tab_ix ", tab_ix)
+            if len(heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs)>=1:
+                #heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs[tab_ix].child.y_range = Range1d(0, 20)
+                #heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs[tab_ix].child.x_range = Range1d(-10, 10)
+                try:
+                    export_png(heatmaps_per_epochs[epoch].tabs[major_tab_ix].child.tabs[tab_ix].child,
+                               filename="./misc/sample_exports/global_features_feat_group_{}_feature_{}_epoch_{}.png".format(major_tab_ix, tab_ix, epoch))
+                except:
+                    continue
 
 
