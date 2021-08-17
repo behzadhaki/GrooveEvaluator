@@ -46,8 +46,6 @@ def get_stats_from_evaluator(evaluator_, calc_gt=True, calc_pred=True, csv_file=
     if pd_df is not None:
         keys.extend(pd_df.columns)
 
-    print(keys)
-
     datas = []
     labels = []
 
