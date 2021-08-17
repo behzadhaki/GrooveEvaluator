@@ -70,6 +70,8 @@ def get_stats_from_evaluator(evaluator_, calc_gt=True, calc_pred=True, csv_file=
                        ["mean", "std", "min", "max", "median", "q1", "q3"],
                        labels
                        )
+    
+    df2 = df2.loc[:,~df2.columns.duplicated()] # cols are duplicated
 
     if csv_file is not None:
         df2.to_csv(csv_file)
