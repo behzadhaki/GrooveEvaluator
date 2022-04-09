@@ -1,6 +1,4 @@
-[submodule "preprocessed_dataset"]
-	path = preprocessed_dataset
-	url = git@github.com:behzadhaki/preprocessed_dataset.git
 [submodule "GrooveEvaluator/preprocessed_dataset"]
 	path = GrooveEvaluator/preprocessed_dataset
 	url = git@github.com:behzadhaki/preprocessed_dataset.git
+	branch = submodules
