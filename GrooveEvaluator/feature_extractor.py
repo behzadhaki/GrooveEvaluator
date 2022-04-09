@@ -3,7 +3,7 @@ from tqdm import tqdm
 from sklearn.neighbors import KernelDensity
 from scipy.stats import  gaussian_kde
 from scipy import stats, integrate
-from GrooveEvaluator.settings import FEATURES_TO_EXTRACT
+from .settings import FEATURES_TO_EXTRACT
 import functools
 from scipy.stats.kde import gaussian_kde
 

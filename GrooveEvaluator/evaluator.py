@@ -1,30 +1,29 @@
+import copy
+import warnings
+from tqdm import tqdm
+import os
+import pickle as pk
+from copy import deepcopy
+from .preprocessed_dataset import GrooveMidiSubsetterAndSampler, convert_hvos_array_to_subsets
 import numpy as np
 import zipfile
 import wandb
 
-from GrooveEvaluator.feature_extractor import Feature_Extractor_From_HVO_SubSets
-from GrooveEvaluator.plotting_utils import global_features_plotter, velocity_timing_heatmaps_scatter_plotter
-from GrooveEvaluator.plotting_utils import separate_figues_by_tabs
+from .feature_extractor import Feature_Extractor_From_HVO_SubSets
+from .plotting_utils import global_features_plotter, velocity_timing_heatmaps_scatter_plotter
+from .plotting_utils import separate_figues_by_tabs
 
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
 import sys
-sys.path.insert(1, "../../preprocessed_dataset/")
-sys.path.insert(1, "../preprocessed_dataset/")
-from Subset_Creators import subsetters
+#sys.path.insert(1, "../../preprocessed_dataset/")
+#sys.path.insert(1, "../preprocessed_dataset/")
 
-from copy import deepcopy
-import pickle as pk
-import os
-from tqdm import tqdm
 
-import warnings
+#sys.path.insert(1, "../../")
+#sys.path.insert(1, "../")
 
-import sys
-sys.path.insert(1, "../../")
-sys.path.insert(1, "../")
-import copy
 
 class Evaluator:
     # Eval 1. Test set loss
@@ -66,7 +65,7 @@ class Evaluator:
         self.disable_tqdm = disable_tqdm
 
         # Create subsets of data
-        gt_subsetter_sampler = subsetters.GrooveMidiSubsetterAndSampler(
+        gt_subsetter_sampler = GrooveMidiSubsetterAndSampler(
             pickle_source_path=pickle_source_path, subset=set_subfolder, hvo_pickle_filename=hvo_pickle_filename,
             list_of_filter_dicts_for_subsets=list_of_filter_dicts_for_subsets,
             number_of_samples=n_samples_to_use,
@@ -85,11 +84,11 @@ class Evaluator:
                 self._gt_hvo_sequences.append(sample_hvo)
                 self._gt_hvos_array_tags.append(tag)
                 self._gt_hvos_array.append(sample_hvo.get("hvo"))
-                self._prediction_hvo_seq_templates.append(sample_hvo.copy_empty())
+                self._prediction_hvo_seq_templates.append(
+                    sample_hvo.copy_empty())
 
         self._gt_hvos_array = np.stack(self._gt_hvos_array)
 
-        
         # a text to identify the evaluator (exp "Train_Epoch1", "Test_Epoch1")
         self._identifier = _identifier
 
@@ -97,7 +96,8 @@ class Evaluator:
         self.gt_SubSet_Evaluator = HVOSeq_SubSet_Evaluator(
             self._gt_subsets,              # Ground Truth typically
             self._gt_tags,
-            "{}_Ground_Truth".format(self._identifier),             # a name for the subset
+            # a name for the subset
+            "{}_Ground_Truth".format(self._identifier),
             disable_tqdm=self.disable_tqdm,
             group_by_minor_keys=True)
 
@@ -107,16 +107,19 @@ class Evaluator:
         self._prediction_hvos_array = None
 
         # Get the index for the samples that will be synthesized and also for which the piano-roll can be generated
-        self.audio_sample_locations = self.get_sample_indices(n_samples_to_synthesize_visualize_per_subset)
+        self.audio_sample_locations = self.get_sample_indices(
+            n_samples_to_synthesize_visualize_per_subset)
 
-        self._gt_logged_once = False             # Flag will be set to True when ground truth data is once evaluated
-        self._gt_logged_once_wandb = False       # Flag will be set to True when ground truth data is once evaluated
-                                                    # for WANDB
-
+        # Flag will be set to True when ground truth data is once evaluated
+        self._gt_logged_once = False
+        # Flag will be set to True when ground truth data is once evaluated
+        self._gt_logged_once_wandb = False
+        # for WANDB
 
     def get_logging_dict(self, velocity_heatmap_html=True, global_features_html=True,
                          piano_roll_html=True, audio_files=True,
-                         sf_paths=["../hvo_sequence/hvo_sequence/soundfonts/Standard_Drum_Kit.sf2"],
+                         sf_paths=[
+                             "../hvo_sequence/hvo_sequence/soundfonts/Standard_Drum_Kit.sf2"],
                          recalculate_ground_truth=True):
 
         _gt_logging_data = None
@@ -143,9 +146,10 @@ class Evaluator:
         return _gt_logging_data, _predicted_logging_data
 
     def get_wandb_logging_media(self, velocity_heatmap_html=True, global_features_html=True,
-                         piano_roll_html=True, audio_files=True,
-                         sf_paths=["../hvo_sequence/hvo_sequence/soundfonts/Standard_Drum_Kit.sf2"],
-                         recalculate_ground_truth=True):
+                                piano_roll_html=True, audio_files=True,
+                                sf_paths=[
+                                    "../hvo_sequence/hvo_sequence/soundfonts/Standard_Drum_Kit.sf2"],
+                                recalculate_ground_truth=True):
 
         # Get logging data for ground truth data
         if recalculate_ground_truth is True or self._gt_logged_once_wandb is False:
@@ -194,8 +198,7 @@ class Evaluator:
             _pred = pred[:, :, i]
             n_hits = _gt.shape[-1]
             accuracies["Hits_Accuracy"][self._identifier].update({"{}".format(drum_voice, self._identifier):
-                                   ((_gt == _pred).sum(axis=-1) / n_hits).mean()})
-
+                                                                  ((_gt == _pred).sum(axis=-1) / n_hits).mean()})
 
         gt = gt.reshape((n_examples, -1))
         pred = pred.reshape((n_examples, -1))
@@ -208,7 +211,8 @@ class Evaluator:
     def get_velocity_errors(self, drum_mapping):
         n_drum_voices = len(drum_mapping.keys())
         gt = self._gt_hvos_array[:, :, n_drum_voices:2*n_drum_voices]
-        pred = self._prediction_hvos_array[:, :,  n_drum_voices:2*n_drum_voices]
+        pred = self._prediction_hvos_array[:,
+                                           :,  n_drum_voices:2*n_drum_voices]
 
         n_examples = gt.shape[0]
         # Flatten
@@ -217,7 +221,7 @@ class Evaluator:
             _gt = gt[:, :, i]
             _pred = pred[:, :, i]
             errors["Velocity_MSE"][self._identifier].update({"{}".format(drum_voice, self._identifier):
-                                                                      (((_gt - _pred)**2).mean(axis=-1)).mean()})
+                                                             (((_gt - _pred)**2).mean(axis=-1)).mean()})
 
         gt = gt.reshape((n_examples, -1))
         pred = pred.reshape((n_examples, -1))
@@ -237,7 +241,7 @@ class Evaluator:
             _gt = gt[:, :, i]
             _pred = pred[:, :, i]
             errors["Micro_Timing_MSE"][self._identifier].update({"{}".format(drum_voice, self._identifier):
-                                                                      (((_gt - _pred)**2).mean(axis=-1)).mean()})
+                                                                 (((_gt - _pred)**2).mean(axis=-1)).mean()})
 
         gt = gt.reshape((n_examples, -1))
         pred = pred.reshape((n_examples, -1))
@@ -247,20 +251,25 @@ class Evaluator:
         return errors
 
     def get_rhythmic_distances(self):
-        gt_set = {self._gt_tags[ix]: subset for ix, subset in enumerate(self._gt_subsets)}
-        predicted_set = {self._prediction_tags[ix]: subset for ix, subset in enumerate(self._prediction_subsets)}
+        gt_set = {self._gt_tags[ix]: subset for ix,
+                  subset in enumerate(self._gt_subsets)}
+        predicted_set = {self._prediction_tags[ix]: subset for ix, subset in enumerate(
+            self._prediction_subsets)}
 
         distances_dict = None
 
         for tag in tqdm(predicted_set.keys(),
-                        desc='Calculating Rhythmic Distances - {}'.format(self._identifier),
+                        desc='Calculating Rhythmic Distances - {}'.format(
+                            self._identifier),
                         disable=self.disable_tqdm
                         ):
             for sample_ix, predicted_sample_hvo in enumerate(predicted_set[tag]):
-                distances_dictionary = predicted_sample_hvo.calculate_all_distances_with(gt_set[tag][sample_ix])
+                distances_dictionary = predicted_sample_hvo.calculate_all_distances_with(
+                    gt_set[tag][sample_ix])
 
                 if distances_dict is None:
-                    distances_dict = {x: [] for x in distances_dictionary.keys()}
+                    distances_dict = {x: []
+                                      for x in distances_dictionary.keys()}
 
                 for key in distances_dictionary.keys():
                     distances_dict[key].append(distances_dictionary[key])
@@ -284,17 +293,17 @@ class Evaluator:
 
     def add_predictions(self, prediction_hvos_array):
         self._prediction_hvos_array = prediction_hvos_array
-        self._prediction_tags, self._prediction_subsets = \
-            subsetters.convert_hvos_array_to_subsets(
-                self._gt_hvos_array_tags,
-                prediction_hvos_array,
-                self._prediction_hvo_seq_templates
-            )
+        self._prediction_tags, self._prediction_subsets = convert_hvos_array_to_subsets(
+            self._gt_hvos_array_tags,
+            prediction_hvos_array,
+            self._prediction_hvo_seq_templates
+        )
 
         self.prediction_SubSet_Evaluator = HVOSeq_SubSet_Evaluator(
             self._prediction_subsets,
             self._prediction_tags,
-            "{}_Predictions".format(self._identifier),             # a name for the subset
+            # a name for the subset
+            "{}_Predictions".format(self._identifier),
             disable_tqdm=self.disable_tqdm,
             group_by_minor_keys=True)
 
@@ -304,7 +313,8 @@ class Evaluator:
         if not os.path.exists(os.path.dirname(path)):
             os.makedirs(os.path.dirname(path))
 
-        fname = os.path.join(path, "evaluator.Eval") if ".Eval" not in path else path
+        fname = os.path.join(
+            path, "evaluator.Eval") if ".Eval" not in path else path
 
         f = open(fname, "wb")
         pk.dump(self, f)
@@ -330,7 +340,8 @@ class Evaluator:
 
 PATH_DICT_TEMPLATE = {
     "root_dir": "",                 # ROOT_DIR to save data
-    "project_name": '',             # GROOVE_TRANSFORMER_INFILL or GROOVE_TRANSFORMER_TAP2DRUM
+    # GROOVE_TRANSFORMER_INFILL or GROOVE_TRANSFORMER_TAP2DRUM
+    "project_name": '',
     "run_name": '',                 # WANDB RUN NAME run = wandb.init(...
     "set_identifier": '',  # TRAIN OR TEST
     "epoch": '',
@@ -352,7 +363,6 @@ class HVOSeq_SubSet_Evaluator (object):
             analyze_heatmap=True,
             analyze_global_features=True
     ):
-
         """
         Used for evaluating a set containing multiple subsets of hvo_sequence samples
 
@@ -412,7 +422,8 @@ class HVOSeq_SubSet_Evaluator (object):
         tags = tags_subsets_tuple[0]
         subsets = tags_subsets_tuple[1]
         assert len(tags) == len(subsets), "Length mismatch between Tags and HVO Subsets : {} Tags vs " \
-                                          "{} HVO_Seq Subsets".format(len(tags), len(subsets))
+                                          "{} HVO_Seq Subsets".format(
+                                              len(tags), len(subsets))
         self.__set_tags = tags
         self.__set_subsets = subsets
 
@@ -438,9 +449,8 @@ class HVOSeq_SubSet_Evaluator (object):
             regroup_by_drum_voice=self.group_by_minor_keys
         ) if self.analyze_heatmap else None
 
-
         # todo
-        #self.global_features_dict = self.feature_extractor.
+        # self.global_features_dict = self.feature_extractor.
 
     def get_vel_heatmap_bokeh_figures(
             self, plot_width=1200, plot_height_per_set=100, legend_fnt_size="8px",
@@ -452,8 +462,8 @@ class HVOSeq_SubSet_Evaluator (object):
         tags = copy.deepcopy(self.tags_subsets[0])
         tags.sort()
 
-        _vel_heatmaps_dict = {x: {} for x in  self.vel_heatmaps_dict.keys()}
-        _vel_scatters_dict = {x: {} for x in  self.vel_scatters_dict.keys()}
+        _vel_heatmaps_dict = {x: {} for x in self.vel_heatmaps_dict.keys()}
+        _vel_scatters_dict = {x: {} for x in self.vel_scatters_dict.keys()}
 
         for inst in self.vel_heatmaps_dict.keys():
             for tag in tags:
@@ -474,7 +484,8 @@ class HVOSeq_SubSet_Evaluator (object):
             synchronize_plots=synchronize_plots,
             downsample_heat_maps_by=downsample_heat_maps_by
         )
-        tabs = separate_figues_by_tabs(p, tab_titles=list(self.vel_heatmaps_dict.keys()))
+        tabs = separate_figues_by_tabs(
+            p, tab_titles=list(self.vel_heatmaps_dict.keys()))
         return tabs
 
     def get_global_features_bokeh_figure(self, plot_width=800, plot_height=1200,
@@ -487,7 +498,8 @@ class HVOSeq_SubSet_Evaluator (object):
             force_extract=False, plot_width=plot_width, plot_height=plot_height,
             legend_fnt_size=legend_fnt_size,
             scale_y=False, resolution=resolution)
-        tabs = separate_figues_by_tabs(p, tab_titles=list(self.global_features_dict.keys()))
+        tabs = separate_figues_by_tabs(
+            p, tab_titles=list(self.global_features_dict.keys()))
         return tabs
 
     def get_hvo_samples_located_at(self, use_specific_samples_at, force_get=False):
@@ -500,7 +512,8 @@ class HVOSeq_SubSet_Evaluator (object):
         if self._sampled_hvos is None or force_get:
             self._sampled_hvos = {x: [] for x in tags}
             for subset_ix, tag in enumerate(tags):
-                self._sampled_hvos[tag] = [subsets[subset_ix][ix] for ix in use_specific_samples_at[tag]]
+                self._sampled_hvos[tag] = [subsets[subset_ix][ix]
+                                           for ix in use_specific_samples_at[tag]]
 
             return self._sampled_hvos
 
@@ -511,7 +524,8 @@ class HVOSeq_SubSet_Evaluator (object):
         """ use_specific_samples_at: must be a list of tuples of (subset_ix, sample_ix) denoting to get
         audio from the sample_ix in subset_ix """
 
-        self._sampled_hvos = self.get_hvo_samples_located_at(use_specific_samples_at)
+        self._sampled_hvos = self.get_hvo_samples_located_at(
+            use_specific_samples_at)
 
         if not isinstance(sf_paths, list):
             sf_paths = [sf_paths]
@@ -520,14 +534,16 @@ class HVOSeq_SubSet_Evaluator (object):
         captions = []
 
         for key in tqdm(self._sampled_hvos.keys(),
-                        desc='Synthesizing samples - {} '.format(self.set_identifier),
+                        desc='Synthesizing samples - {} '.format(
+                            self.set_identifier),
                         disable=self.disable_tqdm):
             for sample_hvo in self._sampled_hvos[key]:
                 # randomly select a sound font
                 sf_path = sf_paths[np.random.randint(0, len(sf_paths))]
                 audios.append(sample_hvo.synthesize(sf_path=sf_path))
                 captions.append("{}_{}_{}.wav".format(
-                    self.set_identifier, sample_hvo.metadata.style_primary, sample_hvo.metadata.master_id.replace("/", "_")
+                    self.set_identifier, sample_hvo.metadata.style_primary, sample_hvo.metadata.master_id.replace(
+                        "/", "_")
                 ))
 
         # sort so that they are alphabetically ordered in wandb
@@ -540,11 +556,12 @@ class HVOSeq_SubSet_Evaluator (object):
     def get_piano_rolls(self, use_specific_samples_at=None):
         """ use_specific_samples_at: must be a dict of lists of (sample_ix) """
 
-        self._sampled_hvos = self.get_hvo_samples_located_at(use_specific_samples_at)
+        self._sampled_hvos = self.get_hvo_samples_located_at(
+            use_specific_samples_at)
         tab_titles = []
         piano_roll_tabs = []
         for subset_ix, tag in tqdm(enumerate(self._sampled_hvos.keys()),
-                                   desc='Creating Piano rolls for '+ self.set_identifier,
+                                   desc='Creating Piano rolls for ' + self.set_identifier,
                                    disable=self.disable_tqdm):
             piano_rolls = []
             for sample_hvo in self._sampled_hvos[tag]:
@@ -552,7 +569,8 @@ class HVOSeq_SubSet_Evaluator (object):
                     self.set_identifier, sample_hvo.metadata.style_primary,
                     sample_hvo.metadata.master_id.replace("/", "_"))
                 piano_rolls.append(sample_hvo.to_html_plot(filename=title))
-            piano_roll_tabs.append(separate_figues_by_tabs(piano_rolls, [str(x) for x in range(len(piano_rolls))]))
+            piano_roll_tabs.append(separate_figues_by_tabs(
+                piano_rolls, [str(x) for x in range(len(piano_rolls))]))
             tab_titles.append(tag)
 
         # sort so that they are alphabetically ordered in wandb
@@ -585,15 +603,20 @@ class HVOSeq_SubSet_Evaluator (object):
 
         logging_dict = {}
         if velocity_heatmap_html is True:
-            logging_dict.update({"velocity_heatmaps": self.get_vel_heatmap_bokeh_figures()})
+            logging_dict.update(
+                {"velocity_heatmaps": self.get_vel_heatmap_bokeh_figures()})
         if global_features_html is True:
-            logging_dict.update({"global_feature_pdfs": self.get_global_features_bokeh_figure()})
+            logging_dict.update(
+                {"global_feature_pdfs": self.get_global_features_bokeh_figure()})
         if audio_files is True:
-            captions_audios_tuples = self.get_audios(sf_paths, use_specific_samples_at)
-            captions_audios = [(c_a[0], c_a[1]) for c_a in captions_audios_tuples]
+            captions_audios_tuples = self.get_audios(
+                sf_paths, use_specific_samples_at)
+            captions_audios = [(c_a[0], c_a[1])
+                               for c_a in captions_audios_tuples]
             logging_dict.update({"captions_audios": captions_audios})
         if piano_roll_html is True:
-            logging_dict.update({"piano_rolls": self.get_piano_rolls(use_specific_samples_at)})
+            logging_dict.update(
+                {"piano_rolls": self.get_piano_rolls(use_specific_samples_at)})
 
         return logging_dict
 
@@ -610,7 +633,7 @@ class HVOSeq_SubSet_Evaluator (object):
                     {
                         "velocity_heatmaps":
                             {
-                            self.set_identifier:
+                                self.set_identifier:
                                 wandb.Html(file_html(
                                     logging_dict["velocity_heatmaps"], CDN, "vel_heatmap_"+self.set_identifier))
                             }
@@ -637,7 +660,8 @@ class HVOSeq_SubSet_Evaluator (object):
                             {
                                 self.set_identifier:
                                     [
-                                        wandb.Audio(c_a[1], caption=c_a[0], sample_rate=44100)
+                                        wandb.Audio(
+                                            c_a[1], caption=c_a[0], sample_rate=44100)
                                         for c_a in captions_audios_tuples
                                     ]
                             }
