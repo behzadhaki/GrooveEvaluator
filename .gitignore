@@ -130,3 +130,9 @@ dmypy.json
 
 .idea/
 test/
+/post_processing_scripts/evaluators_monotonic_groove_transformer_v1/validation_set_evaluator_run_hopeful-gorge-252_Epoch_90.Eval
+/post_processing_scripts/evaluators_monotonic_groove_transformer_v1/validation_set_evaluator_run_misunderstood-bush-246_Epoch_26.Eval
+/post_processing_scripts/evaluators_monotonic_groove_transformer_v1/validation_set_evaluator_run_rosy-durian-248_Epoch_26.Eval
+/post_processing_scripts/evaluators_monotonic_groove_transformer_v1/validation_set_evaluator_run_solar-shadow-247_Epoch_41.Eval
+
+*.Eval
