@@ -2,7 +2,15 @@
 Source:
     
     https://github.com/RichardYang40148/mgeval
+
+
+Environment activation
+
+    source /Users/behzadhaki/.bash_profile
+    conda activate mgeval
     
+
+
 Used for evaluating the MonotonicGrooveTransformer (Ver1)
 
 ------------

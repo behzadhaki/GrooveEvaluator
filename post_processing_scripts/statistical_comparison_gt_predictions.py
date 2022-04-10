@@ -83,6 +83,15 @@ if __name__ == '__main__':
     from GrooveEvaluator import evaluator # import your version of evaluator!!
     import pickle
 
-    test_set_evaluator = pickle.load(open("misc/evals/validation_set_evaluator_run_misunderstood-bush-246_Epoch_26.Eval", "rb"))
+    run_names = [
+        "hopeful-gorge-252_Epoch_90",
+        "misunderstood-bush-246_Epoch_26",
+        "rosy-durian-248_Epoch_26",
+        "solar-shadow-247_Epoch_41",
+        "groovae"]
 
-    df_compiled = get_stats_from_evaluator(test_set_evaluator, csv_file="misc/test_data.csv")
+    for run_name in run_names:
+        test_set_evaluator = pickle.load(open(f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/validation_set_evaluator_run_{run_name}.Eval", "rb"))
+
+        df_compiled = get_stats_from_evaluator(test_set_evaluator, csv_file="misc/test_data.csv").transpose()
+        df_compiled.to_csv(f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/{run_name}.csv")
