@@ -138,3 +138,4 @@ test/
 *.Eval
 /misc/sample_exports/
 /post_processing_scripts/evaluators_monotonic_groove_transformer_v1/exported_to_midi/
+/post_processing_scripts/modo_midis_4_4/

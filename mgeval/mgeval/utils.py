@@ -10,7 +10,6 @@ import sklearn
 import numpy as np
 from scipy import stats, integrate
 
-
 # Calculate overlap between the two PDF
 def overlap_area(A, B):
     pdf_A = stats.gaussian_kde(A)

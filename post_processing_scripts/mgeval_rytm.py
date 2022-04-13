@@ -1,108 +1,122 @@
-import numpy as np
-import pandas as pd
-from GrooveEvaluator import evaluator  # import your version of evaluator!!
-import pickle
+from post_processing_scripts.mgeval_rytm_utils import *
 
-def get_pd_feats_from_evaluator(evaluator_):
-    # extracts the prediction features from a evaluator
-    return evaluator_.prediction_SubSet_Evaluator.feature_extractor.get_global_features_dicts(True)
-
-
-def get_gt_feats_from_evaluator(evaluator_):
-    # extracts the ground truth features from a evaluator
-    return evaluator_.gt_SubSet_Evaluator.feature_extractor.get_global_features_dicts(True)
-
-
-def flatten_subset_genres(feature_dict):
-    # combines the subset samples irregardless of their genre
-    flattened_feature_dict = {x: np.array([]) for x in feature_dict.keys()}
-    for feature_key in flattened_feature_dict.keys():
-        for subset_key, subset_samples in feature_dict[feature_key].items():
-            flattened_feature_dict[feature_key] = np.append(flattened_feature_dict[feature_key], subset_samples)
-    return flattened_feature_dict
-
-
-def get_absolute_measures_for_single_set(flat_feature_dict, csv_file=None):
-    # Gets absolute measures of a set according to
-    # Yang, Li-Chia, and Alexander Lerch. "On the evaluation of generative models in music."
-    #           Neural Computing and Applications 32.9 (2020): 4773-4784.
-
-    stats = []  # list of lists stats[i] corresponds to [mean, std, min, max, median, q1, q3]
-    labels = []
-
-    for key in flat_feature_dict.keys():
-        data = flat_feature_dict[key]
-        # Calc stats
-        stats.append(
-            [np.mean(data), np.std(data), np.min(data), np.max(data), np.percentile(data, 50), np.percentile(data, 25),
-             np.percentile(data, 75)])
-        labels.append(key)
-
-    df2 = pd.DataFrame(np.array(stats).transpose(),
-                       ["mean", "std", "min", "max", "median", "q1", "q3"],
-                       labels).transpose()
-
-    if csv_file is not None:
-        df2.to_csv(csv_file)
-
-    return df2
-
-
-def get_absolute_measures_for_multiple_sets(sets_of_flat_feature_dict, csv_file=None):
-
-    sets_dfs = []
-    sets_df_keys = []
-    for set_tag, set_feat_dict in sets_of_flat_feature_dict.items():
-        sets_df_keys.append(set_tag)
-        sets_dfs.append(get_absolute_measures_for_single_set(set_feat_dict))
-        print(f"--------- Finished Calculating Absolute Measures for set {set_tag} --------------")
-
-    pd_final = pd.concat(sets_dfs, keys=sets_df_keys)
-
-    if csv_file is not None:
-        pd_final.to_csv(csv_file)
-
-    return pd_final
 
 if __name__ == '__main__':
 
+    gmd_eval = pickle.load(open(
+            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
+            f"validation_set_evaluator_run_misunderstood-bush-246_Epoch_26.Eval","rb"))
+
+    down_size = 1024
+    final_indices = sample_uniformly(gmd_eval, num_samples=down_size) if down_size < 1024 else list(range(1024))
+
     # Compile data (flatten styles)
-    sets = {
-        "gmd": flatten_subset_genres(get_gt_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_misunderstood-bush-246_Epoch_26.Eval","rb")))),
-        "hopeful": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_hopeful-gorge-252_Epoch_90.Eval","rb")))),
-        "misunderstood": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_misunderstood-bush-246_Epoch_26.Eval", "rb")))),
-        "rosy": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_rosy-durian-248_Epoch_26.Eval", "rb")))),
-        "solar": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_solar-shadow-247_Epoch_41.Eval", "rb")))),
-        "groovae": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_groovae.Eval", "rb")))),
+    sets_evals = {
+        "groovae":
+            pickle.load(open(f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
+                             f"validation_set_evaluator_run_groovae.Eval", "rb")),
+        "rosy":
+            pickle.load(open(f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
+                             f"validation_set_evaluator_run_rosy-durian-248_Epoch_26.Eval", "rb")),
+        "hopeful":
+            pickle.load(open(f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
+                             f"validation_set_evaluator_run_hopeful-gorge-252_Epoch_90.Eval", "rb")),
+        "solar":
+            pickle.load(open(f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
+                             f"validation_set_evaluator_run_solar-shadow-247_Epoch_41.Eval", "rb")),
+        "misunderstood":
+            pickle.load(open(f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
+                             f"validation_set_evaluator_run_misunderstood-bush-246_Epoch_26.Eval", "rb"))
     }
 
+    # compile and flatten features
+    feature_sets = {"gmd": flatten_subset_genres(get_gt_feats_from_evaluator(list(sets_evals.values())[0]))}
+    feature_sets.update({
+        set_name:flatten_subset_genres(get_pd_feats_from_evaluator(eval)) for (set_name, eval) in sets_evals.items()
+    })
+
+    # ----- grab selected indices (samples)
+    for set_name, set_dict in feature_sets.items():
+        for key, array in set_dict.items():
+            feature_sets[set_name][key] = array[final_indices]
+
+    # --- remove unnecessary features
+    allowed_analysis = ["Statistical::NoI", "Statistical::Total Step Density", "Statistical::Avg Voice Density",
+                        "Statistical::Lowness", "Statistical::Midness", "Statistical::Hiness",
+                        "Statistical::Vel Similarity Score", "Statistical::Weak to Strong Ratio",
+                        "Syncopation::Lowsync", "Syncopation::Midsync", "Syncopation::Hisync",
+                        "Syncopation::Lowsyness", "Syncopation::Midsyness", "Syncopation::Hisyness", "Syncopation::Complexity"]
+
+    for set_name in feature_sets.keys():
+        for key in list(feature_sets[set_name].keys()):
+            if key not in allowed_analysis:
+                feature_sets[set_name].pop(key)
+
     # ================================================================
-    # ---- Absolute Measures According to
+    # ---- Analysis 0: Accuracy Vs. Precision
+    # from sklearn.metrics import precision_score, accuracy_score
+    # ================================================================
+    stats_sets = get_positive_negative_hit_stats(sets_evals)
+    fig_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/"
+    boxplot_absolute_measures(stats_sets, fs=12, legend_fs=10, legend_ncols=3, fig_path=fig_path, show=True, ncols=4,
+                              figsize=(20, 10), color_map="tab20c", filename="Stats.png")
+
+
+
+    vel_stats_sets = get_positive_negative_vel_stats(sets_evals)
+    boxplot_absolute_measures(vel_stats_sets, fs=12, legend_fs=10, legend_ncols=3, fig_path=fig_path, show=True, ncols=4,
+                              figsize=(20, 10), color_map="tab20c", filename="Stats_velocities.png", force_ylim = (-0.2, 1))
+
+    ut_stats_sets = get_positive_negative_utiming_stats(sets_evals)
+    boxplot_absolute_measures(ut_stats_sets, fs=12, legend_fs=10, legend_ncols=3, fig_path=fig_path, show=True,
+                              ncols=4,
+                              figsize=(20, 10), color_map="tab20c", filename="Stats_utimings.png", force_ylim = (-0.7, 0.7))
+
+    # ================================================================
+    # ---- Analysis 1: Absolute Measures According to
     # Yang, Li-Chia, and Alexander Lerch. "On the evaluation of generative models in music."
     #           Neural Computing and Applications 32.9 (2020): 4773-4784.
     # ================================================================
 
     # Compile Absolute Measures
     csv_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/absolute_measures.csv"
-    get_absolute_measures_for_multiple_sets(sets, csv_file=csv_path)
+    pd_final = get_absolute_measures_for_multiple_sets(feature_sets, csv_file=csv_path)
+
+    fig_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/"
+    boxplot_absolute_measures(feature_sets, fs=12, legend_fs=8, legend_ncols=2, fig_path=fig_path, show=False, ncols=5,
+                              figsize=(18, 10), color_map="tab20c")
+
+
 
     # ================================================================
-    # Intra_set Calculations according to
-    # Yang, Li-Chia, and Alexander Lerch. "On the evaluation of generative models in music."
-    #           Neural Computing and Applications 32.9 (2020): 4773-4784.
+    # ---- Analysis 2: Comparing the 4 models we made with each other
+    # 1.a. Calculate intraset distances of gmd and 4 models
+    #   b. Calculate mean and std of each
+    # 2.a. Calculate interset distances of each 4 models from gmd
+    #   b. for each set, calculate KLD and OLD against gmd
+    # 3. Create a table similar to Table 4 in Yang et. al.
     # ================================================================
+    # 1.a.
 
 
-    #sets["gmd"]
+    set_labels = ['gmd', 'groovae', 'misunderstood'] # always put gt on the very left
+
+    gt = feature_sets[set_labels[0]]
+    set1 = feature_sets[set_labels[1]]
+    set2 = feature_sets[set_labels[2]]
+
+
+
+
+    # Export Analysis to Table
+    #csv_path = f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/{set_labels[0]}_{set_labels[1]}_{set_labels[2]}/table4_compiled.csv"
+    df, raw_data = compare_two_sets_against_ground_truth(gt, set1, set2, set_labels=set_labels, csv_path=csv_path)
+
+
+    # Generate inter_intra_pdfs feature plots
+    fig_path = f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/{set_labels[0]}_{set_labels[1]}_{set_labels[2]}"
+    plot_inter_intra_pdfs(raw_data, fig_path, set_labels, show=False)
+
+    # Generate per feature plots
+    plot_intersets(df, fig_path, set_labels, show=False)
+
