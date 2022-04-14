@@ -139,3 +139,6 @@ test/
 /misc/sample_exports/
 /post_processing_scripts/evaluators_monotonic_groove_transformer_v1/exported_to_midi/
 /post_processing_scripts/modo_midis_4_4/
+/post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/boxplots/.~lock.absolute_measures.csv#
+/post_processing_scripts/evaluators_monotonic_groove_transformer_v1/trained_models/colorful_sweep_41.model
+/post_processing_scripts/evaluators_monotonic_groove_transformer_v1/trained_models/robust_sweep_29.model
