@@ -16,20 +16,22 @@ def flatten(t):
 
 
 # ---- boxplot raw data
-def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, fig_path=None, show=False, ncols=4, figsize=(20, 10), color_map="pastel1", filename=None, force_ylim=None):
+def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, fig_path=None, show=False, ncols=4, figsize=(20, 10),
+                              color_map="pastel1", filename=None, force_ylim=None, shift_colors_by=0, auto_adjust_ylim = False):
       # fontsize
     n_plots = len(sets[list(sets.keys())[0]].keys())
     nrows = int(np.ceil(n_plots / ncols))
     fig, axes = plt.subplots(nrows=int(np.ceil(n_plots / ncols)), ncols=ncols, figsize=figsize, sharey=False)
     cnt = 0
 
-    cmap = get_cmap(len(sets.keys()), name=color_map)
+    cmap = get_cmap(len(sets.keys())+shift_colors_by, name=color_map)
 
     for feature in sets[list(sets.keys())[0]].keys():
         yrange = 0
 
         labels = []
         handles = []
+        datas_for_range = []
 
         if nrows == 1 and ncols == 1:
             ax_ = axes
@@ -44,15 +46,18 @@ def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, f
         for set_ix, set_name in enumerate(sets):
             labels.append(f"{set_name[:7].replace('gmd', 'GMD')}")
             data = sets[set_name][feature]
+            datas_for_range.append(min(data))
+            datas_for_range.append(max(data))
+
             #yrange = max(yrange, max(data) - min(data))
             handle = ax_.boxplot(data, positions=[set_ix], labels=[set_name], notch=True, widths=0.1,
                                patch_artist=True,
-                               boxprops=dict(facecolor=cmap(set_ix)))  # , boxprops=dict(facecolor=cmap(set_ix))
+                               boxprops=dict(facecolor=cmap(set_ix+shift_colors_by)))  # , boxprops=dict(facecolor=cmap(set_ix))
             handles.append(handle['boxes'][0])
 
             violin_parts = ax_.violinplot(data, positions=[set_ix])
             for pc in violin_parts['bodies']:
-              pc.set_facecolor(cmap(set_ix))
+              pc.set_facecolor(cmap(set_ix+shift_colors_by))
               pc.set_edgecolor('black')
               pc.set_linewidth(1)
 
@@ -62,8 +67,18 @@ def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, f
 
         ax_.legend(handles, labels, loc='lower right', prop={'size':legend_fs}, mode="expand", ncol=legend_ncols)
 
-        if force_ylim is not None:
+        if auto_adjust_ylim is True:
+            yrange = max(datas_for_range)-min(datas_for_range)
+            if max(datas_for_range) < 50:
+                ax_.set_ylim(bottom=min(datas_for_range)-0.3*yrange, top=max(datas_for_range)*1.05)
+            else:
+                ax_.set_ylim(bottom=-15, top=100)
+
+
+
+        elif force_ylim is not None:
             ax_.set_ylim(bottom=force_ylim[0], top=force_ylim[1])
+
         #else:
         #    print(yrange / 2)
         #    ax_.set_ylim(bottom=max(yrange / 2, -16))
@@ -75,6 +90,7 @@ def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, f
 
     if fig_path is not None:
         if filename is None:
+            filename = ""
             for set_name in sets.keys():
                 filename = filename + f"{set_name}_"
 
@@ -84,53 +100,72 @@ def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, f
     if show is True:
           plt.show()
 
-def get_positive_negative_vel_stats(sets_evals):
+
+def get_positive_negative_vel_stats(sets_evals, ground_truth_key = ["GMD"]):
     stats_sets = dict()
     for set_name, evaluator_ in sets_evals.items():
-        velocities_actual = np.array([])
-        velocities_all_Hits = np.array([])
-        velocities_TP = np.array([])
-        velocities_FP = np.array([])
-        velocities_actual_mean = np.array([])
-        velocities_all_Hits_mean = np.array([])
-        velocities_TP_mean = np.array([])
-        velocities_FP_mean = np.array([])
+        vel_actual = np.array([])
+        vel_all_Hits = np.array([])
+        vel_TP = np.array([])
+        vel_FP = np.array([])
+        vel_actual_mean = np.array([])
+        vel_actual_std = np.array([])
+        vel_all_Hits_mean = np.array([])
+        vel_all_Hits_std = np.array([])
+        vel_TP_mean = np.array([])
+        vel_TP_std = np.array([])
+        vel_FP_mean = np.array([])
+        vel_FP_std = np.array([])
 
         for (true_values, predictions) in zip(evaluator_._gt_hvos_array, evaluator_._prediction_hvos_array):
-            velocities_actual=np.append(velocities_actual, true_values[:, 9:18][np.nonzero(true_values[:, 9:18])])
-            velocities_actual_mean=np.append(velocities_actual_mean, np.nanmean(true_values[:, 9:18][np.nonzero(true_values[:, :9])]))
-            vels_predicted = np.array(predictions[:, 9:18]).flatten()
+            true_vels = true_values[:, 9: 18][np.nonzero(true_values[:, 9: 18])]
+            true_vels = np.where(true_vels>0.5, 0.5, true_vels)
+            vel_actual=np.append(vel_actual, true_vels)
+            vel_actual_mean=np.append(vel_actual_mean, np.nanmean(true_values[:, 9: 18][np.nonzero(true_values[:, :9])]))
+            vel_actual_std=np.append(vel_actual_std, np.nanstd(true_values[:, 9: 18][np.nonzero(true_values[:, :9])]))
+            vels_predicted = np.array(predictions[:, 9: 18]).flatten()
             actual_hits = np.array(true_values[:, :9]).flatten()
             predicted_hits = np.array(predictions[:, :9]).flatten()
             all_predicted_hit_indices, = (predicted_hits==1).nonzero()
-            velocities_all_Hits = np.append(velocities_all_Hits, vels_predicted[all_predicted_hit_indices])
-            velocities_all_Hits_mean = np.append(velocities_all_Hits_mean, np.nanmean(vels_predicted[all_predicted_hit_indices]))
+            vel_all_Hits = np.append(vel_all_Hits, vels_predicted[all_predicted_hit_indices])
+            vel_all_Hits_mean = np.append(vel_all_Hits_mean, np.nanmean(vels_predicted[all_predicted_hit_indices]))
+            vel_all_Hits_std = np.append(vel_all_Hits_std, np.nanstd(vels_predicted[all_predicted_hit_indices]))
             true_hit_indices, = np.logical_and(actual_hits==1, predicted_hits==1).nonzero()
-            velocities_TP = np.append(velocities_TP, vels_predicted[true_hit_indices])
-            velocities_TP_mean = np.append(velocities_TP_mean, np.nanmean(vels_predicted[true_hit_indices]))
+            vel_TP = np.append(vel_TP, vels_predicted[true_hit_indices])
+            vel_TP_mean = np.append(vel_TP_mean, np.nanmean(vels_predicted[true_hit_indices]))
+            vel_TP_std = np.append(vel_TP_std, np.nanstd(vels_predicted[true_hit_indices]))
             false_hit_indices, = np.logical_and(actual_hits==0, predicted_hits==1).nonzero()
-            velocities_FP = np.append(velocities_FP, vels_predicted[false_hit_indices])
-            velocities_FP_mean = np.append(velocities_FP_mean, np.nanmean(vels_predicted[false_hit_indices]))
+            vel_FP = np.append(vel_FP, vels_predicted[false_hit_indices])
+            vel_FP_mean = np.append(vel_FP_mean, np.nanmean(vels_predicted[false_hit_indices]))
+            vel_FP_std = np.append(vel_FP_std, np.nanstd(vels_predicted[false_hit_indices]))
 
         stats_sets.update(
             {
                 set_name:
                     {
-                        "Ground Truth Velocities":  np.nan_to_num(velocities_actual),
-                        "Predicted Velocities (All Hits)": np.nan_to_num(velocities_all_Hits),
-                        "Predicted Velocities (True Hits)": np.nan_to_num(velocities_TP),
-                        "Predicted Velocities (False Hits)": np.nan_to_num(velocities_FP),
-                        "Ground Truth Velocities (Mean Per Example)": np.nan_to_num(velocities_actual_mean),
-                        "Predicted Velocities (All Hits) (Mean Per Example)": np.nan_to_num(velocities_all_Hits_mean),
-                        "Predicted Velocities (True Hits) (Mean Per Example)": np.nan_to_num(velocities_TP_mean),
-                        "Predicted Velocities (False Hits) (Mean Per Example)": np.nan_to_num(velocities_FP_mean),
+                        "All Hits (mean per Loop)": np.nan_to_num(vel_all_Hits_mean),
+                        "True Hits (mean per Loop)": np.nan_to_num(vel_TP_mean),
+                        "False Hits (mean per Loop)": np.nan_to_num(vel_FP_mean),
+                        "All Hits (std per Loop)": np.nan_to_num(vel_all_Hits_std),
+                        "True Hits (std per Loop)": np.nan_to_num(vel_TP_std),
+                        "False Hits (std per Loop)": np.nan_to_num(vel_FP_std),
+                    } if set_name not in ground_truth_key else
+                    {
+                        "All Hits (mean per Loop)": np.nan_to_num(vel_all_Hits_mean),
+                        "True Hits (mean per Loop)": np.nan_to_num(vel_all_Hits_mean),
+                        "False Hits (mean per Loop)": np.nan_to_num(vel_all_Hits_mean),
+                        "All Hits (std per Loop)": np.nan_to_num(vel_all_Hits_std),
+                        "True Hits (std per Loop)": np.nan_to_num(vel_all_Hits_std),
+                        "False Hits (std per Loop)": np.nan_to_num(vel_all_Hits_std),
                     }
+
              }
         )
 
     return stats_sets
 
-def get_positive_negative_utiming_stats(sets_evals):
+
+def get_positive_negative_utiming_stats(sets_evals, ground_truth_key = ["GMD"]):
     stats_sets = dict()
     for set_name, evaluator_ in sets_evals.items():
         uTiming_actual = np.array([])
@@ -138,47 +173,63 @@ def get_positive_negative_utiming_stats(sets_evals):
         uTiming_TP = np.array([])
         uTiming_FP = np.array([])
         uTiming_actual_mean = np.array([])
+        uTiming_actual_std = np.array([])
         uTiming_all_Hits_mean = np.array([])
+        uTiming_all_Hits_std = np.array([])
         uTiming_TP_mean = np.array([])
+        uTiming_TP_std = np.array([])
         uTiming_FP_mean = np.array([])
+        uTiming_FP_std = np.array([])
 
         for (true_values, predictions) in zip(evaluator_._gt_hvos_array, evaluator_._prediction_hvos_array):
             true_utimings = true_values[:, 18:][np.nonzero(true_values[:, 18:])]
             true_utimings = np.where(true_utimings>0.5, 0.5, true_utimings)
             uTiming_actual=np.append(uTiming_actual, true_utimings)
             uTiming_actual_mean=np.append(uTiming_actual_mean, np.nanmean(true_values[:, 18:][np.nonzero(true_values[:, :9])]))
+            uTiming_actual_std=np.append(uTiming_actual_std, np.nanstd(true_values[:, 18:][np.nonzero(true_values[:, :9])]))
             uts_predicted = np.array(predictions[:, 18:]).flatten()
             actual_hits = np.array(true_values[:, :9]).flatten()
             predicted_hits = np.array(predictions[:, :9]).flatten()
             all_predicted_hit_indices, = (predicted_hits==1).nonzero()
             uTiming_all_Hits = np.append(uTiming_all_Hits, uts_predicted[all_predicted_hit_indices])
             uTiming_all_Hits_mean = np.append(uTiming_all_Hits_mean, np.nanmean(uts_predicted[all_predicted_hit_indices]))
+            uTiming_all_Hits_std = np.append(uTiming_all_Hits_std, np.nanstd(uts_predicted[all_predicted_hit_indices]))
             true_hit_indices, = np.logical_and(actual_hits==1, predicted_hits==1).nonzero()
             uTiming_TP = np.append(uTiming_TP, uts_predicted[true_hit_indices])
             uTiming_TP_mean = np.append(uTiming_TP_mean, np.nanmean(uts_predicted[true_hit_indices]))
+            uTiming_TP_std = np.append(uTiming_TP_std, np.nanstd(uts_predicted[true_hit_indices]))
             false_hit_indices, = np.logical_and(actual_hits==0, predicted_hits==1).nonzero()
             uTiming_FP = np.append(uTiming_FP, uts_predicted[false_hit_indices])
             uTiming_FP_mean = np.append(uTiming_FP_mean, np.nanmean(uts_predicted[false_hit_indices]))
+            uTiming_FP_std = np.append(uTiming_FP_std, np.nanstd(uts_predicted[false_hit_indices]))
 
         stats_sets.update(
             {
                 set_name:
                     {
-                        "Ground Truth uTiming":  np.nan_to_num(uTiming_actual),
-                        "Predicted uTiming (All Hits)": np.nan_to_num(uTiming_all_Hits),
-                        "Predicted uTiming (True Hits)": np.nan_to_num(uTiming_TP),
-                        "Predicted uTiming (False Hits)": np.nan_to_num(uTiming_FP),
-                        "Ground Truth uTiming (Mean Per Example)": np.nan_to_num(uTiming_actual_mean),
-                        "Predicted uTiming (All Hits) (Mean Per Example)": np.nan_to_num(uTiming_all_Hits_mean),
-                        "Predicted uTiming (True Hits) (Mean Per Example)": np.nan_to_num(uTiming_TP_mean),
-                        "Predicted uTiming (False Hits) (Mean Per Example)": np.nan_to_num(uTiming_FP_mean),
+                        "All Hits (mean per Loop)": np.nan_to_num(uTiming_all_Hits_mean),
+                        "True Hits (mean per Loop)": np.nan_to_num(uTiming_TP_mean),
+                        "False Hits (mean per Loop)": np.nan_to_num(uTiming_FP_mean),
+                        "All Hits (std per Loop)": np.nan_to_num(uTiming_all_Hits_std),
+                        "True Hits (std per Loop)": np.nan_to_num(uTiming_TP_std),
+                        "False Hits (std per Loop)": np.nan_to_num(uTiming_FP_std),
+                    } if set_name not in ground_truth_key else
+                    {
+                        "All Hits (mean per Loop)": np.nan_to_num(uTiming_all_Hits_mean),
+                        "True Hits (mean per Loop)": np.nan_to_num(uTiming_all_Hits_mean),
+                        "False Hits (mean per Loop)": np.nan_to_num(uTiming_all_Hits_mean),
+                        "All Hits (std per Loop)": np.nan_to_num(uTiming_all_Hits_std),
+                        "True Hits (std per Loop)": np.nan_to_num(uTiming_all_Hits_std),
+                        "False Hits (std per Loop)": np.nan_to_num(uTiming_all_Hits_std),
                     }
-             }
+
+            }
         )
 
     return stats_sets
 
-def get_positive_negative_hit_stats(sets_evals):
+
+def get_positive_negative_hit_stats(sets_evals,  ground_truth_key = ["GMD"]):
     stats_sets = dict()
     for set_name, evaluator_ in sets_evals.items():
         stats_sets.update({set_name:
@@ -202,7 +253,9 @@ def get_positive_negative_hit_stats(sets_evals):
             }}
         )
     for set_name, evaluator_ in sets_evals.items():
+
         Actual_P_array = []
+        Total_predicted_array = []
         TP_array = []
         FP_array = []
         PPV_array = []
@@ -225,17 +278,20 @@ def get_positive_negative_hit_stats(sets_evals):
             TP_array.append(TP)
             FP_array.append(FP)
             Actual_P_array.append(Actual_P)
+            Total_predicted_array.append((predictions == 1).sum())
 
         stats_sets[set_name].update({
             "PPV": PPV_array,
             "FDR": FDR_array,
             "TPR": TPR_array,
             "FPR": FPR_array,
-            "TP": TP_array,
-            "FP": FP_array,
-            "Actual Positives": Actual_P_array
+            "True Hits": TP_array,
+            "False Hits": FP_array,
+            "Total Hits": Total_predicted_array,
+            "Actual Hits": Actual_P_array
         })
     return stats_sets
+
 
 def sample_uniformly(gmd_eval, num_samples):
     uniques = 0
@@ -274,10 +330,12 @@ def sample_uniformly(gmd_eval, num_samples):
 
     return final_indices
 
+
 def get_cmap(n, name='tab20c'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
     RGB color; the keyword argument name must be a standard mpl colormap name.'''
     return plt.cm.get_cmap(name, n)
+
 
 def get_pd_feats_from_evaluator(evaluator_):
     # extracts the prediction features from a evaluator
@@ -339,6 +397,7 @@ def get_absolute_measures_for_multiple_sets(sets_of_flat_feature_dict, csv_file=
         pd_final.to_csv(csv_file)
 
     return pd_final
+
 
 def get_intraset_distances_from_array(features_array):
     # Calculates l2 norm distance of each sample with every other sample

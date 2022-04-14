@@ -1,5 +1,5 @@
 from post_processing_scripts.mgeval_rytm_utils import *
-
+from copy import deepcopy
 
 if __name__ == '__main__':
 
@@ -52,25 +52,36 @@ if __name__ == '__main__':
             if key not in allowed_analysis:
                 feature_sets[set_name].pop(key)
 
+
     # ================================================================
-    # ---- Analysis 0: Accuracy Vs. Precision
+    # ---- Analysis 0:  Accuracy Vs. Precision
+    # ----              Also, utiming and velocity analysis
     # from sklearn.metrics import precision_score, accuracy_score
     # ================================================================
+    gmd_eval = deepcopy(list(sets_evals.values())[0])
+    gmd_eval._prediction_hvos_array = gmd_eval._gt_hvos_array
+    absolute_sets_evals = {"GMD": gmd_eval}
+    absolute_sets_evals.update(sets_evals)
+
     stats_sets = get_positive_negative_hit_stats(sets_evals)
-    fig_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/"
+    fig_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/boxplots"
+
+
     boxplot_absolute_measures(stats_sets, fs=12, legend_fs=10, legend_ncols=3, fig_path=fig_path, show=True, ncols=4,
-                              figsize=(20, 10), color_map="tab20c", filename="Stats.png")
+                              figsize=(20, 10), color_map="tab20c", filename="Stats", shift_colors_by=1,
+                              auto_adjust_ylim = True)
 
 
 
-    vel_stats_sets = get_positive_negative_vel_stats(sets_evals)
-    boxplot_absolute_measures(vel_stats_sets, fs=12, legend_fs=10, legend_ncols=3, fig_path=fig_path, show=True, ncols=4,
-                              figsize=(20, 10), color_map="tab20c", filename="Stats_velocities.png", force_ylim = (-0.2, 1))
+    vel_stats_sets = get_positive_negative_vel_stats(absolute_sets_evals)
+    boxplot_absolute_measures(vel_stats_sets, fs=12, legend_fs=10, legend_ncols=3, fig_path=fig_path, show=True,
+                              ncols=3,
+                              figsize=(12, 6), color_map="tab20c", filename="Stats_vels", force_ylim = (-0.3, 1.1))
 
-    ut_stats_sets = get_positive_negative_utiming_stats(sets_evals)
+    ut_stats_sets = get_positive_negative_utiming_stats(absolute_sets_evals)
     boxplot_absolute_measures(ut_stats_sets, fs=12, legend_fs=10, legend_ncols=3, fig_path=fig_path, show=True,
-                              ncols=4,
-                              figsize=(20, 10), color_map="tab20c", filename="Stats_utimings.png", force_ylim = (-0.7, 0.7))
+                              ncols=3,
+                              figsize=(12, 6), color_map="tab20c", filename="Stats_utimings", force_ylim = (-0.5, 0.41))
 
     # ================================================================
     # ---- Analysis 1: Absolute Measures According to
@@ -79,10 +90,10 @@ if __name__ == '__main__':
     # ================================================================
 
     # Compile Absolute Measures
-    csv_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/absolute_measures.csv"
+    csv_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/boxplots/absolute_measures.csv"
     pd_final = get_absolute_measures_for_multiple_sets(feature_sets, csv_file=csv_path)
 
-    fig_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/"
+    fig_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/boxplots"
     boxplot_absolute_measures(feature_sets, fs=12, legend_fs=8, legend_ncols=2, fig_path=fig_path, show=False, ncols=5,
                               figsize=(18, 10), color_map="tab20c")
 
@@ -99,13 +110,11 @@ if __name__ == '__main__':
     # 1.a.
 
 
-    set_labels = ['gmd', 'groovae', 'misunderstood'] # always put gt on the very left
+    set_labels = ['gmd', 'groovae', 'rosy'] # always put gt on the very left
 
     gt = feature_sets[set_labels[0]]
     set1 = feature_sets[set_labels[1]]
     set2 = feature_sets[set_labels[2]]
-
-
 
 
     # Export Analysis to Table
