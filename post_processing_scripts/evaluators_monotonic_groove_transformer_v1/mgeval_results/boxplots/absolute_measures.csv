@@ -7,6 +7,12 @@ gmd,Statistical::Midness,0.339,0.183,0.0,1.0,0.325,0.214,0.464
 gmd,Statistical::Hiness,0.384,0.225,0.0,1.0,0.367,0.237,0.5
 gmd,Statistical::Vel Similarity Score,0.878,0.129,0.0,1.0,0.91,0.858,0.942
 gmd,Statistical::Weak to Strong Ratio,1.481,1.35,0.04,23.813,1.287,0.52,2.146
+gmd,Statistical::Poly Velocity Mean,0.606,0.165,0.211,1.0,0.599,0.472,0.737
+gmd,Statistical::Poly Velocity std,0.24,0.063,0.0,0.395,0.24,0.197,0.286
+gmd,Statistical::Poly Offset Mean,-0.064,0.093,-0.317,0.275,-0.061,-0.13,-0.002
+gmd,Statistical::Poly Offset std,0.169,0.076,0.042,0.398,0.158,0.104,0.227
+gmd,Syncopation::Combined,0.762,0.432,0.0,2.1,0.733,0.4,1.042
+gmd,Syncopation::Polyphonic,0.589,0.37,0.0,2.033,0.6,0.3,0.867
 gmd,Syncopation::Lowsync,0.145,0.128,0.0,0.567,0.1,0.033,0.233
 gmd,Syncopation::Midsync,0.207,0.203,0.0,0.933,0.167,0.033,0.367
 gmd,Syncopation::Hisync,0.136,0.146,0.0,0.833,0.1,0.0,0.2
@@ -14,78 +20,150 @@ gmd,Syncopation::Lowsyness,0.021,0.017,0.0,0.1,0.019,0.007,0.033
 gmd,Syncopation::Midsyness,0.019,0.018,0.0,0.1,0.015,0.001,0.031
 gmd,Syncopation::Hisyness,0.012,0.015,0.0,0.083,0.007,0.0,0.019
 gmd,Syncopation::Complexity,1.048,0.431,0.205,2.282,1.051,0.66,1.345
-groovae,Statistical::NoI,3.951,0.986,0.0,7.0,4.0,3.0,4.0
-groovae,Statistical::Total Step Density,0.662,0.217,0.0,1.0,0.656,0.469,0.875
-groovae,Statistical::Avg Voice Density,0.11,0.039,0.0,0.215,0.104,0.08,0.139
-groovae,Statistical::Lowness,0.223,0.102,0.0,0.647,0.219,0.154,0.28
-groovae,Statistical::Midness,0.354,0.175,0.0,0.913,0.325,0.224,0.475
-groovae,Statistical::Hiness,0.357,0.172,0.0,0.9,0.371,0.217,0.467
-groovae,Statistical::Vel Similarity Score,0.841,0.12,0.0,0.992,0.862,0.826,0.889
-groovae,Statistical::Weak to Strong Ratio,1.284,1.249,0.0,7.0,0.899,0.396,1.771
-groovae,Syncopation::Lowsync,0.139,0.123,0.0,0.7,0.1,0.033,0.233
-groovae,Syncopation::Midsync,0.25,0.206,0.0,0.933,0.2,0.067,0.4
-groovae,Syncopation::Hisync,0.122,0.129,0.0,0.867,0.067,0.0,0.167
-groovae,Syncopation::Lowsyness,0.02,0.017,0.0,0.1,0.017,0.005,0.033
-groovae,Syncopation::Midsyness,0.022,0.017,0.0,0.1,0.02,0.008,0.033
-groovae,Syncopation::Hisyness,0.012,0.014,0.0,0.067,0.007,0.0,0.017
-groovae,Syncopation::Complexity,1.012,0.448,0.0,2.391,0.98,0.624,1.355
-rosy,Statistical::NoI,3.697,0.779,2.0,7.0,4.0,3.0,4.0
-rosy,Statistical::Total Step Density,0.662,0.233,0.094,1.0,0.625,0.469,0.906
-rosy,Statistical::Avg Voice Density,0.12,0.049,0.017,0.253,0.111,0.08,0.16
-rosy,Statistical::Lowness,0.252,0.128,0.0,0.765,0.233,0.167,0.31
-rosy,Statistical::Midness,0.362,0.161,0.0,0.944,0.35,0.243,0.476
-rosy,Statistical::Hiness,0.325,0.164,0.0,0.824,0.313,0.205,0.423
-rosy,Statistical::Vel Similarity Score,0.9,0.111,0.0,0.988,0.923,0.889,0.947
-rosy,Statistical::Weak to Strong Ratio,1.27,1.066,0.0,8.149,1.045,0.442,1.829
-rosy,Syncopation::Lowsync,0.091,0.099,0.0,0.467,0.067,0.0,0.133
-rosy,Syncopation::Midsync,0.233,0.198,0.0,0.933,0.2,0.067,0.367
-rosy,Syncopation::Hisync,0.097,0.104,0.0,0.6,0.067,0.0,0.133
-rosy,Syncopation::Lowsyness,0.012,0.013,0.0,0.067,0.007,0.0,0.019
-rosy,Syncopation::Midsyness,0.021,0.016,0.0,0.1,0.02,0.007,0.031
-rosy,Syncopation::Hisyness,0.012,0.014,0.0,0.067,0.006,0.0,0.017
-rosy,Syncopation::Complexity,0.928,0.394,0.094,2.337,0.945,0.591,1.214
-hopeful,Statistical::NoI,4.01,0.897,2.0,7.0,4.0,3.0,4.0
-hopeful,Statistical::Total Step Density,0.68,0.224,0.156,1.0,0.656,0.5,0.906
-hopeful,Statistical::Avg Voice Density,0.15,0.056,0.021,0.333,0.142,0.104,0.191
-hopeful,Statistical::Lowness,0.244,0.09,0.0,0.591,0.242,0.182,0.302
-hopeful,Statistical::Midness,0.25,0.129,0.0,0.64,0.233,0.154,0.333
-hopeful,Statistical::Hiness,0.414,0.143,0.041,0.833,0.412,0.322,0.5
-hopeful,Statistical::Vel Similarity Score,0.917,0.086,0.0,0.995,0.934,0.9,0.957
-hopeful,Statistical::Weak to Strong Ratio,1.358,1.517,0.0,37.57,1.203,0.483,1.868
-hopeful,Syncopation::Lowsync,0.114,0.111,0.0,0.6,0.1,0.033,0.167
-hopeful,Syncopation::Midsync,0.201,0.205,0.0,0.933,0.167,0.0,0.333
-hopeful,Syncopation::Hisync,0.085,0.093,0.0,0.533,0.067,0.0,0.133
-hopeful,Syncopation::Lowsyness,0.012,0.011,0.0,0.06,0.01,0.002,0.019
-hopeful,Syncopation::Midsyness,0.017,0.015,0.0,0.067,0.017,0.0,0.029
-hopeful,Syncopation::Hisyness,0.006,0.01,0.0,0.067,0.004,0.0,0.007
-hopeful,Syncopation::Complexity,0.994,0.443,0.156,2.753,1.006,0.601,1.277
-solar,Statistical::NoI,3.337,0.542,2.0,6.0,3.0,3.0,4.0
-solar,Statistical::Total Step Density,0.666,0.234,0.094,1.0,0.656,0.469,0.906
-solar,Statistical::Avg Voice Density,0.122,0.044,0.01,0.247,0.118,0.087,0.153
-solar,Statistical::Lowness,0.225,0.104,0.0,0.75,0.217,0.158,0.276
-solar,Statistical::Midness,0.284,0.157,0.0,0.867,0.25,0.171,0.377
-solar,Statistical::Hiness,0.447,0.175,0.0,0.889,0.455,0.333,0.562
-solar,Statistical::Vel Similarity Score,0.912,0.094,0.0,0.998,0.93,0.9,0.953
-solar,Statistical::Weak to Strong Ratio,1.217,1.009,0.0,9.93,1.017,0.428,1.708
-solar,Syncopation::Lowsync,0.104,0.1,0.0,0.467,0.1,0.0,0.167
-solar,Syncopation::Midsync,0.192,0.21,0.0,0.933,0.133,0.0,0.3
-solar,Syncopation::Hisync,0.088,0.097,0.0,0.633,0.067,0.0,0.167
-solar,Syncopation::Lowsyness,0.014,0.012,0.0,0.067,0.013,0.0,0.022
-solar,Syncopation::Midsyness,0.018,0.016,0.0,0.067,0.017,0.0,0.03
-solar,Syncopation::Hisyness,0.008,0.011,0.0,0.078,0.004,0.0,0.008
-solar,Syncopation::Complexity,0.867,0.359,0.099,2.092,0.847,0.557,1.122
-misunderstood,Statistical::NoI,4.4,0.965,3.0,8.0,4.0,4.0,5.0
-misunderstood,Statistical::Total Step Density,0.683,0.221,0.156,1.0,0.656,0.5,0.906
-misunderstood,Statistical::Avg Voice Density,0.173,0.054,0.042,0.34,0.167,0.132,0.215
-misunderstood,Statistical::Lowness,0.261,0.082,0.0,0.625,0.257,0.209,0.308
-misunderstood,Statistical::Midness,0.28,0.107,0.03,0.604,0.281,0.209,0.346
-misunderstood,Statistical::Hiness,0.322,0.12,0.0,0.78,0.312,0.25,0.375
-misunderstood,Statistical::Vel Similarity Score,0.928,0.078,0.0,0.991,0.943,0.915,0.962
-misunderstood,Statistical::Weak to Strong Ratio,1.304,1.23,0.025,27.217,1.144,0.529,1.753
-misunderstood,Syncopation::Lowsync,0.112,0.114,0.0,0.6,0.067,0.033,0.167
-misunderstood,Syncopation::Midsync,0.258,0.21,0.0,0.933,0.233,0.067,0.4
-misunderstood,Syncopation::Hisync,0.081,0.097,0.0,0.633,0.067,0.0,0.1
-misunderstood,Syncopation::Lowsyness,0.009,0.01,0.0,0.052,0.006,0.002,0.014
-misunderstood,Syncopation::Midsyness,0.019,0.013,0.0,0.067,0.019,0.008,0.027
-misunderstood,Syncopation::Hisyness,0.007,0.01,0.0,0.067,0.004,0.0,0.007
-misunderstood,Syncopation::Complexity,1.048,0.443,0.156,2.683,1.023,0.686,1.323
+gmd,Auto-Correlation::Skewness,2.69,0.9,0.284,5.216,2.772,2.252,3.266
+gmd,Auto-Correlation::Max,13.424,5.897,1.006,30.85,12.497,9.829,16.874
+gmd,Auto-Correlation::Centroid,8.306,1.256,1.231,10.336,8.5,7.793,9.152
+gmd,Auto-Correlation::Harmonicity,0.216,0.188,0.002,1.0,0.171,0.075,0.299
+gmd,Micro-Timing::Swingness,0.335,0.301,0.0,1.35,0.276,0.057,0.55
+gmd,Micro-Timing::Laidbackness,0.006,0.233,-0.625,0.875,0.0,-0.125,0.125
+gmd,Micro-Timing::Accuracy,0.153,0.077,0.026,0.447,0.137,0.093,0.207
+GrooVAE,Statistical::NoI,3.951,0.986,0.0,7.0,4.0,3.0,4.0
+GrooVAE,Statistical::Total Step Density,0.662,0.217,0.0,1.0,0.656,0.469,0.875
+GrooVAE,Statistical::Avg Voice Density,0.11,0.039,0.0,0.215,0.104,0.08,0.139
+GrooVAE,Statistical::Lowness,0.223,0.102,0.0,0.647,0.219,0.154,0.28
+GrooVAE,Statistical::Midness,0.354,0.175,0.0,0.913,0.325,0.224,0.475
+GrooVAE,Statistical::Hiness,0.357,0.172,0.0,0.9,0.371,0.217,0.467
+GrooVAE,Statistical::Vel Similarity Score,0.841,0.12,0.0,0.992,0.862,0.826,0.889
+GrooVAE,Statistical::Weak to Strong Ratio,1.284,1.249,0.0,7.0,0.899,0.396,1.771
+GrooVAE,Statistical::Poly Velocity Mean,0.402,0.109,0.0,0.752,0.4,0.324,0.474
+GrooVAE,Statistical::Poly Velocity std,0.217,0.049,0.0,0.369,0.219,0.185,0.253
+GrooVAE,Statistical::Poly Offset Mean,-0.057,0.054,-0.208,0.095,-0.058,-0.092,-0.022
+GrooVAE,Statistical::Poly Offset std,0.057,0.02,0.0,0.165,0.055,0.042,0.071
+GrooVAE,Syncopation::Combined,0.738,0.443,0.0,2.2,0.667,0.367,1.067
+GrooVAE,Syncopation::Polyphonic,0.599,0.367,0.0,2.1,0.533,0.3,0.833
+GrooVAE,Syncopation::Lowsync,0.139,0.123,0.0,0.7,0.1,0.033,0.233
+GrooVAE,Syncopation::Midsync,0.25,0.206,0.0,0.933,0.2,0.067,0.4
+GrooVAE,Syncopation::Hisync,0.122,0.129,0.0,0.867,0.067,0.0,0.167
+GrooVAE,Syncopation::Lowsyness,0.02,0.017,0.0,0.1,0.017,0.005,0.033
+GrooVAE,Syncopation::Midsyness,0.022,0.017,0.0,0.1,0.02,0.008,0.033
+GrooVAE,Syncopation::Hisyness,0.012,0.014,0.0,0.067,0.007,0.0,0.017
+GrooVAE,Syncopation::Complexity,1.012,0.448,0.0,2.391,0.98,0.624,1.355
+GrooVAE,Auto-Correlation::Skewness,2.249,0.85,0.0,5.031,2.284,1.709,2.743
+GrooVAE,Auto-Correlation::Max,6.891,3.519,0.0,20.952,6.537,4.273,9.2
+GrooVAE,Auto-Correlation::Centroid,8.309,1.213,2.598,16.0,8.525,7.814,9.064
+GrooVAE,Auto-Correlation::Harmonicity,,,,,,,
+GrooVAE,Micro-Timing::Swingness,0.047,0.056,0.0,0.368,0.03,0.0,0.076
+GrooVAE,Micro-Timing::Laidbackness,0.011,0.173,-0.625,0.625,0.0,-0.125,0.125
+GrooVAE,Micro-Timing::Accuracy,,,,,,,
+Model 1,Statistical::NoI,3.697,0.779,2.0,7.0,4.0,3.0,4.0
+Model 1,Statistical::Total Step Density,0.662,0.233,0.094,1.0,0.625,0.469,0.906
+Model 1,Statistical::Avg Voice Density,0.12,0.049,0.017,0.253,0.111,0.08,0.16
+Model 1,Statistical::Lowness,0.252,0.128,0.0,0.765,0.233,0.167,0.31
+Model 1,Statistical::Midness,0.362,0.161,0.0,0.944,0.35,0.243,0.476
+Model 1,Statistical::Hiness,0.325,0.164,0.0,0.824,0.313,0.205,0.423
+Model 1,Statistical::Vel Similarity Score,0.9,0.111,0.0,0.988,0.923,0.889,0.947
+Model 1,Statistical::Weak to Strong Ratio,1.27,1.066,0.0,8.149,1.045,0.442,1.829
+Model 1,Statistical::Poly Velocity Mean,0.471,0.123,0.202,0.79,0.468,0.374,0.556
+Model 1,Statistical::Poly Velocity std,0.202,0.047,0.06,0.333,0.206,0.172,0.232
+Model 1,Statistical::Poly Offset Mean,-0.052,0.046,-0.167,0.128,-0.053,-0.086,-0.022
+Model 1,Statistical::Poly Offset std,0.067,0.03,0.015,0.171,0.062,0.042,0.086
+Model 1,Syncopation::Combined,0.614,0.383,0.0,2.167,0.567,0.3,0.867
+Model 1,Syncopation::Polyphonic,0.46,0.325,0.0,2.1,0.433,0.2,0.667
+Model 1,Syncopation::Lowsync,0.091,0.099,0.0,0.467,0.067,0.0,0.133
+Model 1,Syncopation::Midsync,0.233,0.198,0.0,0.933,0.2,0.067,0.367
+Model 1,Syncopation::Hisync,0.097,0.104,0.0,0.6,0.067,0.0,0.133
+Model 1,Syncopation::Lowsyness,0.012,0.013,0.0,0.067,0.007,0.0,0.019
+Model 1,Syncopation::Midsyness,0.021,0.016,0.0,0.1,0.02,0.007,0.031
+Model 1,Syncopation::Hisyness,0.012,0.014,0.0,0.067,0.006,0.0,0.017
+Model 1,Syncopation::Complexity,0.928,0.394,0.094,2.337,0.945,0.591,1.214
+Model 1,Auto-Correlation::Skewness,2.283,0.858,0.094,4.776,2.378,1.738,2.939
+Model 1,Auto-Correlation::Max,8.989,4.233,0.507,25.044,8.452,6.32,10.526
+Model 1,Auto-Correlation::Centroid,8.708,1.008,1.9,10.931,8.883,8.218,9.397
+Model 1,Auto-Correlation::Harmonicity,0.137,0.154,0.002,1.0,0.094,0.024,0.2
+Model 1,Micro-Timing::Swingness,0.132,0.128,0.0,0.611,0.105,0.0,0.21
+Model 1,Micro-Timing::Laidbackness,0.015,0.197,-0.625,0.875,0.0,-0.125,0.125
+Model 1,Micro-Timing::Accuracy,0.08,0.036,0.017,0.195,0.081,0.049,0.106
+Model 2,Statistical::NoI,4.01,0.897,2.0,7.0,4.0,3.0,4.0
+Model 2,Statistical::Total Step Density,0.68,0.224,0.156,1.0,0.656,0.5,0.906
+Model 2,Statistical::Avg Voice Density,0.15,0.056,0.021,0.333,0.142,0.104,0.191
+Model 2,Statistical::Lowness,0.244,0.09,0.0,0.591,0.242,0.182,0.302
+Model 2,Statistical::Midness,0.25,0.129,0.0,0.64,0.233,0.154,0.333
+Model 2,Statistical::Hiness,0.414,0.143,0.041,0.833,0.412,0.322,0.5
+Model 2,Statistical::Vel Similarity Score,0.917,0.086,0.0,0.995,0.934,0.9,0.957
+Model 2,Statistical::Weak to Strong Ratio,1.358,1.517,0.0,37.57,1.203,0.483,1.868
+Model 2,Statistical::Poly Velocity Mean,0.457,0.114,0.147,0.69,0.47,0.36,0.555
+Model 2,Statistical::Poly Velocity std,0.2,0.047,0.089,0.327,0.197,0.168,0.23
+Model 2,Statistical::Poly Offset Mean,-0.03,0.047,-0.144,0.169,-0.03,-0.062,-0.001
+Model 2,Statistical::Poly Offset std,0.066,0.032,0.02,0.163,0.06,0.038,0.09
+Model 2,Syncopation::Combined,0.675,0.464,0.0,2.6,0.6,0.3,0.967
+Model 2,Syncopation::Polyphonic,0.401,0.263,0.0,1.4,0.4,0.2,0.567
+Model 2,Syncopation::Lowsync,0.114,0.111,0.0,0.6,0.1,0.033,0.167
+Model 2,Syncopation::Midsync,0.201,0.205,0.0,0.933,0.167,0.0,0.333
+Model 2,Syncopation::Hisync,0.085,0.093,0.0,0.533,0.067,0.0,0.133
+Model 2,Syncopation::Lowsyness,0.012,0.011,0.0,0.06,0.01,0.002,0.019
+Model 2,Syncopation::Midsyness,0.017,0.015,0.0,0.067,0.017,0.0,0.029
+Model 2,Syncopation::Hisyness,0.006,0.01,0.0,0.067,0.004,0.0,0.007
+Model 2,Syncopation::Complexity,0.994,0.443,0.156,2.753,1.006,0.601,1.277
+Model 2,Auto-Correlation::Skewness,2.047,0.796,0.172,4.152,2.121,1.452,2.704
+Model 2,Auto-Correlation::Max,10.682,4.831,0.826,30.139,9.957,7.444,13.15
+Model 2,Auto-Correlation::Centroid,8.926,0.908,1.916,10.486,9.064,8.443,9.585
+Model 2,Auto-Correlation::Harmonicity,0.098,0.12,0.002,1.0,0.05,0.018,0.144
+Model 2,Micro-Timing::Swingness,0.155,0.146,0.0,0.658,0.122,0.011,0.264
+Model 2,Micro-Timing::Laidbackness,0.035,0.185,-0.75,0.625,0.0,0.0,0.125
+Model 2,Micro-Timing::Accuracy,0.071,0.033,0.013,0.175,0.068,0.043,0.094
+Model 3,Statistical::NoI,3.337,0.542,2.0,6.0,3.0,3.0,4.0
+Model 3,Statistical::Total Step Density,0.666,0.234,0.094,1.0,0.656,0.469,0.906
+Model 3,Statistical::Avg Voice Density,0.122,0.044,0.01,0.247,0.118,0.087,0.153
+Model 3,Statistical::Lowness,0.225,0.104,0.0,0.75,0.217,0.158,0.276
+Model 3,Statistical::Midness,0.284,0.157,0.0,0.867,0.25,0.171,0.377
+Model 3,Statistical::Hiness,0.447,0.175,0.0,0.889,0.455,0.333,0.562
+Model 3,Statistical::Vel Similarity Score,0.912,0.094,0.0,0.998,0.93,0.9,0.953
+Model 3,Statistical::Weak to Strong Ratio,1.217,1.009,0.0,9.93,1.017,0.428,1.708
+Model 3,Statistical::Poly Velocity Mean,0.441,0.095,0.215,0.656,0.458,0.356,0.521
+Model 3,Statistical::Poly Velocity std,0.184,0.047,0.046,0.304,0.182,0.152,0.216
+Model 3,Statistical::Poly Offset Mean,-0.043,0.042,-0.166,0.128,-0.045,-0.072,-0.017
+Model 3,Statistical::Poly Offset std,0.061,0.029,0.018,0.147,0.057,0.036,0.083
+Model 3,Syncopation::Combined,0.513,0.346,0.0,1.9,0.433,0.233,0.7
+Model 3,Syncopation::Polyphonic,0.424,0.289,0.0,1.6,0.4,0.2,0.6
+Model 3,Syncopation::Lowsync,0.104,0.1,0.0,0.467,0.1,0.0,0.167
+Model 3,Syncopation::Midsync,0.192,0.21,0.0,0.933,0.133,0.0,0.3
+Model 3,Syncopation::Hisync,0.088,0.097,0.0,0.633,0.067,0.0,0.167
+Model 3,Syncopation::Lowsyness,0.014,0.012,0.0,0.067,0.013,0.0,0.022
+Model 3,Syncopation::Midsyness,0.018,0.016,0.0,0.067,0.017,0.0,0.03
+Model 3,Syncopation::Hisyness,0.008,0.011,0.0,0.078,0.004,0.0,0.008
+Model 3,Syncopation::Complexity,0.867,0.359,0.099,2.092,0.847,0.557,1.122
+Model 3,Auto-Correlation::Skewness,2.042,0.926,0.132,5.388,2.092,1.332,2.809
+Model 3,Auto-Correlation::Max,7.965,3.225,0.419,18.463,7.641,5.64,9.962
+Model 3,Auto-Correlation::Centroid,8.916,1.045,0.0,10.578,9.114,8.431,9.62
+Model 3,Auto-Correlation::Harmonicity,0.118,0.151,0.002,1.0,0.061,0.017,0.167
+Model 3,Micro-Timing::Swingness,0.12,0.124,0.0,0.54,0.073,0.0,0.214
+Model 3,Micro-Timing::Laidbackness,-0.006,0.176,-0.625,0.625,0.0,-0.125,0.125
+Model 3,Micro-Timing::Accuracy,0.072,0.033,0.013,0.183,0.071,0.044,0.096
+Model 4,Statistical::NoI,4.4,0.965,3.0,8.0,4.0,4.0,5.0
+Model 4,Statistical::Total Step Density,0.683,0.221,0.156,1.0,0.656,0.5,0.906
+Model 4,Statistical::Avg Voice Density,0.173,0.054,0.042,0.34,0.167,0.132,0.215
+Model 4,Statistical::Lowness,0.261,0.082,0.0,0.625,0.257,0.209,0.308
+Model 4,Statistical::Midness,0.28,0.107,0.03,0.604,0.281,0.209,0.346
+Model 4,Statistical::Hiness,0.322,0.12,0.0,0.78,0.312,0.25,0.375
+Model 4,Statistical::Vel Similarity Score,0.928,0.078,0.0,0.991,0.943,0.915,0.962
+Model 4,Statistical::Weak to Strong Ratio,1.304,1.23,0.025,27.217,1.144,0.529,1.753
+Model 4,Statistical::Poly Velocity Mean,0.438,0.102,0.177,0.719,0.441,0.356,0.509
+Model 4,Statistical::Poly Velocity std,0.18,0.037,0.072,0.301,0.18,0.157,0.204
+Model 4,Statistical::Poly Offset Mean,-0.043,0.052,-0.182,0.154,-0.044,-0.081,-0.011
+Model 4,Statistical::Poly Offset std,0.079,0.034,0.025,0.177,0.074,0.049,0.105
+Model 4,Syncopation::Combined,0.747,0.47,0.0,2.567,0.667,0.4,1.033
+Model 4,Syncopation::Polyphonic,0.396,0.284,0.0,2.133,0.367,0.2,0.567
+Model 4,Syncopation::Lowsync,0.112,0.114,0.0,0.6,0.067,0.033,0.167
+Model 4,Syncopation::Midsync,0.258,0.21,0.0,0.933,0.233,0.067,0.4
+Model 4,Syncopation::Hisync,0.081,0.097,0.0,0.633,0.067,0.0,0.1
+Model 4,Syncopation::Lowsyness,0.009,0.01,0.0,0.052,0.006,0.002,0.014
+Model 4,Syncopation::Midsyness,0.019,0.013,0.0,0.067,0.019,0.008,0.027
+Model 4,Syncopation::Hisyness,0.007,0.01,0.0,0.067,0.004,0.0,0.007
+Model 4,Syncopation::Complexity,1.048,0.443,0.156,2.683,1.023,0.686,1.323
+Model 4,Auto-Correlation::Skewness,1.854,0.686,0.103,4.146,1.916,1.352,2.346
+Model 4,Auto-Correlation::Max,11.279,4.731,1.096,27.588,10.699,8.308,13.543
+Model 4,Auto-Correlation::Centroid,9.078,0.829,1.87,10.735,9.202,8.647,9.636
+Model 4,Auto-Correlation::Harmonicity,0.077,0.106,0.001,1.0,0.028,0.012,0.116
+Model 4,Micro-Timing::Swingness,0.172,0.146,0.0,0.643,0.157,0.035,0.29
+Model 4,Micro-Timing::Laidbackness,-0.021,0.242,-0.75,0.75,0.0,-0.125,0.125
+Model 4,Micro-Timing::Accuracy,0.086,0.04,0.014,0.196,0.082,0.052,0.118

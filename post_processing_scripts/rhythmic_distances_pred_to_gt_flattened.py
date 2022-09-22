@@ -43,6 +43,8 @@ if __name__ == '__main__':
 
     for set_name in tqdm(sets_evals.keys()):
         for hvo_pd, hvo_gt in zip(prediction_hvos[set_name], gt_hvos[set_name]):
+            hvo_pd.hvo = hvo_pd.flatten_voices(voice_idx=2, velocity_aggregator_modes=3)
+            hvo_gt.hvo = hvo_gt.flatten_voices(voice_idx=2, velocity_aggregator_modes=3)
             calculated_distances_dict = hvo_pd.calculate_all_distances_with(hvo_gt)
             if distance_dicts[set_name] is None:
                 distance_dicts[set_name] = {distance_measure: [] for distance_measure in calculated_distances_dict.keys()}
@@ -62,5 +64,5 @@ if __name__ == '__main__':
 
     fig_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/boxplots"
     boxplot_absolute_measures(updated_distance_dicts, fs=12, legend_fs=10, legend_ncols=3, fig_path=fig_path, show=True, ncols=4,
-                              figsize=(20, 10), color_map="tab20c", filename="distances.png", shift_colors_by=1,
+                              figsize=(20, 10), color_map="tab20c", filename="distances_flattened.png", shift_colors_by=1,
                               auto_adjust_ylim=True)

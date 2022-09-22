@@ -9,6 +9,7 @@ model_params = {
             'n_layers': 10,
             'max_len': 32,
             'device': 'cpu' },
+
     'colorful_sweep_41':
         {
             'd_model': 64,

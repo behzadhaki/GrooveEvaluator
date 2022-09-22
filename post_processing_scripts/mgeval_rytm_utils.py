@@ -9,19 +9,22 @@ import os
 from itertools import cycle
 import random
 import textwrap
-from sklearn.metrics import precision_score, accuracy_score, recall_score, f1_score
+from tqdm import tqdm
+from sklearn.metrics import precision_score, accuracy_score, recall_score, f1_score, matthews_corrcoef
+from datetime import datetime
 
 def flatten(t):
     return [item for sublist in t for item in sublist]
 
-
 # ---- boxplot raw data
-def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, fig_path=None, show=False, ncols=4, figsize=(20, 10),
-                              color_map="pastel1", filename=None, force_ylim=None, shift_colors_by=0, auto_adjust_ylim = False):
-      # fontsize
+def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, fig_path=None,
+                              show=False, ncols=4, figsize=(20, 10), color_map="pastel1", filename=None,
+                              force_ylim=None, shift_colors_by=0, max_label_len=100,
+                              sharey=False, share_legend=False, show_legend=False):
+    # fontsize
     n_plots = len(sets[list(sets.keys())[0]].keys())
     nrows = int(np.ceil(n_plots / ncols))
-    fig, axes = plt.subplots(nrows=int(np.ceil(n_plots / ncols)), ncols=ncols, figsize=figsize, sharey=False)
+    fig, axes = plt.subplots(nrows=int(np.ceil(n_plots / ncols)), ncols=ncols, figsize=figsize, sharey=sharey)
     cnt = 0
 
     cmap = get_cmap(len(sets.keys())+shift_colors_by, name=color_map)
@@ -44,7 +47,8 @@ def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, f
 
 
         for set_ix, set_name in enumerate(sets):
-            labels.append(f"{set_name[:7].replace('gmd', 'GMD')}")
+            print(set_name, feature)
+            labels.append(f"{set_name[:max_label_len].replace('gmd', 'GMD')}")
             data = sets[set_name][feature]
             datas_for_range.append(min(data))
             datas_for_range.append(max(data))
@@ -65,28 +69,27 @@ def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, f
             # ax_.tick_params(axis='x', labelrotation=90, labelsize=fs * 1)
             ax_.get_xaxis().set_visible(False)
 
-        ax_.legend(handles, labels, loc='lower right', prop={'size':legend_fs}, mode="expand", ncol=legend_ncols)
+        if share_legend is not True:
+            if show_legend is True:
+                ax_.legend(handles, labels, loc='lower center', prop={'size':legend_fs}, ncol=legend_ncols)
 
-        if auto_adjust_ylim is True:
-            yrange = max(datas_for_range)-min(datas_for_range)
-            if max(datas_for_range) < 50:
-                ax_.set_ylim(bottom=min(datas_for_range)-0.3*yrange, top=max(datas_for_range)*1.05)
-            else:
-                ax_.set_ylim(bottom=-15, top=100)
-
-
-
-        elif force_ylim is not None:
+        if force_ylim is not None:
             ax_.set_ylim(bottom=force_ylim[0], top=force_ylim[1])
-
-        #else:
-        #    print(yrange / 2)
-        #    ax_.set_ylim(bottom=max(yrange / 2, -16))
 
         for label in ax_.get_yticklabels():
           label.set_fontsize(fs * .75)
 
         cnt += 1
+
+        if force_ylim is None and share_legend is not True:
+            if show_legend is True:
+                y_min, y_max = ax_.get_ylim()
+                ax_.set_ylim(y_min - 0.5 * (y_max - y_min), y_max)
+
+    if share_legend is True:
+        if show_legend is True:
+            fig.legend(handles, labels, loc='lower center', prop={'size':legend_fs}, ncol=legend_ncols)
+        #fig.subplots_adjust(bottom=-1)
 
     if fig_path is not None:
         if filename is None:
@@ -95,10 +98,10 @@ def boxplot_absolute_measures(sets, fs = 30, legend_fs = 10, legend_ncols = 3, f
                 filename = filename + f"{set_name}_"
 
         filename = os.path.join(fig_path, filename)
-        plt.savefig(filename+".png")
+        fig.savefig(filename+".png")
 
     if show is True:
-          plt.show()
+        fig.show()
 
 
 def get_positive_negative_vel_stats(sets_evals, ground_truth_key = ["GMD"]):
@@ -229,27 +232,42 @@ def get_positive_negative_utiming_stats(sets_evals, ground_truth_key = ["GMD"]):
     return stats_sets
 
 
-def get_positive_negative_hit_stats(sets_evals,  ground_truth_key = ["GMD"]):
+def get_positive_negative_hit_stats(sets_evals, hit_weight=1):
     stats_sets = dict()
     for set_name, evaluator_ in sets_evals.items():
         stats_sets.update({set_name:
             {
                 'Accuracy': [
-                    accuracy_score(true_values[:, :9].flatten(), predictions[:, :9].flatten())
+                    accuracy_score(true_values[:, :9].flatten(), predictions[:, :9].flatten(),
+                                   sample_weight=((hit_weight - 1)*predictions[:, :9].flatten()+1))
                     for (true_values, predictions) in zip(evaluator_._gt_hvos_array,
                                                           evaluator_._prediction_hvos_array)],
                 'Precision': [
-                    precision_score(true_values[:, :9].flatten(), predictions[:, :9].flatten())
+                    precision_score(true_values[:, :9].flatten(), predictions[:, :9].flatten(),
+                                   sample_weight=((hit_weight - 1)*predictions[:, :9].flatten()+1))
                     for (true_values, predictions) in zip(evaluator_._gt_hvos_array,
                                                           evaluator_._prediction_hvos_array)],
                 'Recall': [
-                    recall_score(true_values[:, :9].flatten(), predictions[:, :9].flatten())
+                    recall_score(true_values[:, :9].flatten(), predictions[:, :9].flatten(),
+                                   sample_weight=((hit_weight - 1)*predictions[:, :9].flatten()+1))
                     for (true_values, predictions) in zip(evaluator_._gt_hvos_array,
                                                           evaluator_._prediction_hvos_array)],
                 'F1-Score': [
-                    f1_score(true_values[:, :9].flatten(), predictions[:, :9].flatten())
+                    f1_score(true_values[:, :9].flatten(), predictions[:, :9].flatten(),
+                                   sample_weight=((hit_weight - 1)*predictions[:, :9].flatten()+1))
+                    for (true_values, predictions) in zip(evaluator_._gt_hvos_array,
+                                                          evaluator_._prediction_hvos_array)],
+                'MCC (Hit/Silence Classification)': [
+                    matthews_corrcoef(true_values[:, :9].flatten(),
+                                      predictions[:, :9].flatten())
+                    for (true_values, predictions) in zip(evaluator_._gt_hvos_array,
+                                                          evaluator_._prediction_hvos_array)],
+                'MCC (Correct Number of Instruments at each step)': [
+                    matthews_corrcoef(true_values[:, :9].sum(axis=1).flatten(),
+                                      predictions[:, :9].sum(axis=1).flatten())
                     for (true_values, predictions) in zip(evaluator_._gt_hvos_array,
                                                           evaluator_._prediction_hvos_array)]
+
             }}
         )
     for set_name, evaluator_ in sets_evals.items():
@@ -262,14 +280,16 @@ def get_positive_negative_hit_stats(sets_evals,  ground_truth_key = ["GMD"]):
         FDR_array = []
         TPR_array = []
         FPR_array = []
-
+        FP_over_N = []
+        FN_over_P = []
         for (true_values, predictions) in zip(evaluator_._gt_hvos_array, evaluator_._prediction_hvos_array):
             true_values, predictions = np.array(flatten(true_values[:, :9])), np.array(flatten(predictions[:, :9]))
             flat_size = len(true_values)
             Actual_P = np.count_nonzero(true_values)
-            Actual_N = np.count_nonzero(true_values)
+            Actual_N = flat_size - Actual_P
             TP = ((predictions == 1) & (true_values == 1)).sum()
             FP = ((predictions == 1) & (true_values == 0)).sum()
+            FN = ((predictions == 0) & (true_values == 1)).sum()
             # https://en.wikipedia.org/wiki/Precision_and_recall
             PPV_array.append(TP / (TP + FP) if (TP + FP) > 0 else 0)
             FDR_array.append(FP / (TP + FP) if (TP + FP) > 0 else 0)
@@ -277,18 +297,22 @@ def get_positive_negative_hit_stats(sets_evals,  ground_truth_key = ["GMD"]):
             FPR_array.append(FP / Actual_N)
             TP_array.append(TP)
             FP_array.append(FP)
+            FP_over_N.append(FP/Actual_N)
+            FN_over_P.append(FN / Actual_P)
             Actual_P_array.append(Actual_P)
             Total_predicted_array.append((predictions == 1).sum())
 
         stats_sets[set_name].update({
-            "PPV": PPV_array,
-            "FDR": FDR_array,
             "TPR": TPR_array,
             "FPR": FPR_array,
-            "True Hits": TP_array,
-            "False Hits": FP_array,
+            "PPV": PPV_array,
+            "FDR": FDR_array,
+            "Ratio of Silences Predicted as Hits": FP_over_N,
+            "Ratio of Hits Predicted as Silences": FN_over_P,
+            "Actual Hits": Actual_P_array,
+            "True Hits (Matching GMD)": TP_array,
+            "False Hits (Different from GMD)": FP_array,
             "Total Hits": Total_predicted_array,
-            "Actual Hits": Actual_P_array
         })
     return stats_sets
 
@@ -305,24 +329,32 @@ def sample_uniformly(gmd_eval, num_samples):
         #print(len(master_ids), len(set(sorted(master_ids))))
 
     uniques = len(set(sorted(master_ids)))
+    print(uniques)
 
     masterid_index_tuple = list(zip(master_ids, list(range(len(master_ids)))))
 
     all_pairs = sorted(masterid_index_tuple)
 
     sampled_pairs = []
-
     sampled_master_ids = []
 
+    already_sampled = []
+
+    sample_ix = 0
     while len(sampled_pairs) < num_samples:
-        #print(len(sampled_pairs), len(sampled_master_ids))
-        sample_tuple = random.choice(masterid_index_tuple)
-        #print(sample_tuple)
-        if sample_tuple[0] not in sampled_master_ids:
-            sampled_pairs.append(sample_tuple)
-            sampled_master_ids.append(sample_tuple[0])
-        if len(sampled_master_ids) >= uniques:
-            sampled_master_ids = []
+        if sample_ix not in already_sampled:
+            sample_tuple = masterid_index_tuple[sample_ix]
+
+            if sample_tuple[0] not in sampled_master_ids:
+                print(sample_ix, masterid_index_tuple[sample_ix])
+                sampled_pairs.append(sample_tuple)
+                sampled_master_ids.append(sample_tuple[0])
+
+            if len(sampled_master_ids) >= uniques:
+                print("sampled_master_ids", sampled_master_ids)
+                sampled_master_ids = []
+
+        sample_ix = (sample_ix + 1) % len(masterid_index_tuple)
 
     final_indices = []
     for sample_pair in sampled_pairs:
@@ -402,6 +434,7 @@ def get_absolute_measures_for_multiple_sets(sets_of_flat_feature_dict, csv_file=
 def get_intraset_distances_from_array(features_array):
     # Calculates l2 norm distance of each sample with every other sample
     intraset_distances = []
+    features_array = features_array[np.logical_not(np.isnan(features_array))]
     ix = np.arange(features_array.size)
     for current_i, current_feature in enumerate(features_array):
         distance_to_all = np.abs(features_array[np.delete(ix, current_i)] - current_feature)
@@ -424,9 +457,12 @@ def get_interset_distances(flat_feature_dict_a, flat_feature_dict_b):
     interset_distances_feat_dict = {}
 
     for key, flat_feat_array in flat_feature_dict_a.items():
+        flat_feat_array = flat_feat_array[np.logical_not(np.isnan(flat_feat_array))]
+        flat_feat_array_b = flat_feature_dict_b[key][np.logical_not(np.isnan(flat_feature_dict_b[key]))]
+
         interset_distances = []
         for current_i, current_feature_in_a in enumerate(flat_feat_array):
-            distance_to_all = np.abs(flat_feature_dict_b[key] - current_feature_in_a)
+            distance_to_all = np.abs(flat_feat_array_b - current_feature_in_a)
             interset_distances.extend(distance_to_all)
 
         interset_distances_feat_dict[key] = interset_distances
@@ -434,7 +470,7 @@ def get_interset_distances(flat_feature_dict_a, flat_feature_dict_b):
     return interset_distances_feat_dict
 
 
-def kl_dist(A, B, pdf_A=None, pdf_B=None, num_sample=1000):
+def kl_dist(A, B, pdf_A=None, pdf_B=None, num_sample=100):
     # Calculate KL distance between the two PDF
 
     # calc pdfs if necessary - helps to avoid redundant calculations for pdfs if already done
@@ -447,13 +483,10 @@ def kl_dist(A, B, pdf_A=None, pdf_B=None, num_sample=1000):
     return stats.entropy(pdf_A(sample_A), pdf_B(sample_B))
 
 
-def overlap_area(A, B, pdf_A, pdf_B):
+def overlap_area(A, B, pdf_A, pdf_B, max_sample_size=100):
     # Calculate overlap between the two PDF
 
     # calc pdfs if necessary - helps to avoid redundant calculations for pdfs if already done
-    #pdf_A = stats.gaussian_kde(A) if pdf_A is None else pdf_A
-    #pdf_B = stats.gaussian_kde(B) if pdf_B is None else pdf_B
-
     return integrate.quad(lambda x: min(pdf_A(x), pdf_B(x)), np.min((np.min(A), np.min(B))), np.max((np.max(A), np.max(B))))[0]
 
 
@@ -483,7 +516,8 @@ def get_KL_OA_for_multi_feature_distances(distances_dict_A, distances_dict_B,
 
     return KL_dict, OA_dict
 
-def compare_two_sets_against_ground_truth(gt, set1, set2, set_labels=['gt', 'set1', 'set2'], csv_path=None):
+def compare_two_sets_against_ground_truth(gt, set1, set2, set_labels=['gt', 'set1', 'set2'], csv_path=None,
+                                          calc_OA_downsample_size = 100):
     # generates a table similar to that of No.4 in Yang et. al.
     if not os.path.exists(os.path.dirname(csv_path)):
         os.makedirs(os.path.dirname(csv_path))
@@ -516,16 +550,18 @@ def compare_two_sets_against_ground_truth(gt, set1, set2, set_labels=['gt', 'set
 
     data_for_feature = []
     for feature in features:
-        data_row = []
-        # calculate mean and std of gt_intra
-        data_row.extend([np.round(np.mean(gt_intra[feature]), 3), np.round(np.std(gt_intra[feature]), 3)])
-        data_row.extend([np.round(np.mean(set1_intra[feature]), 3), np.round(np.std(set1_intra[feature]), 3)])
-        data_row.extend([np.round(KL_set1inter_gt_intra[feature], 3), np.round(OA_set1inter_gt_intra[feature], 3)])
-        data_row.extend([np.round(np.mean(set2_intra[feature]), 3), np.round(np.std(set2_intra[feature]), 3)])
-        data_row.extend([np.round(KL_set2inter_gt_intra[feature], 3), np.round(OA_set2inter_gt_intra[feature], 3)])
+        try:
+            data_row = []
+            # calculate mean and std of gt_intra
+            data_row.extend([np.round(np.mean(gt_intra[feature]), 3), np.round(np.std(gt_intra[feature]), 3)])
+            data_row.extend([np.round(np.mean(set1_intra[feature]), 3), np.round(np.std(set1_intra[feature]), 3)])
+            data_row.extend([np.round(KL_set1inter_gt_intra[feature], 3), np.round(OA_set1inter_gt_intra[feature], 3)])
+            data_row.extend([np.round(np.mean(set2_intra[feature]), 3), np.round(np.std(set2_intra[feature]), 3)])
+            data_row.extend([np.round(KL_set2inter_gt_intra[feature], 3), np.round(OA_set2inter_gt_intra[feature], 3)])
 
-        data_for_feature.append(data_row)
-
+            data_for_feature.append(data_row)
+        except:
+            print(f"Can't calculate KL or OA for feature {feature}")
     header = pd.MultiIndex.from_arrays([
         np.array(
             [set_labels[0], set_labels[0], set_labels[1], set_labels[1], set_labels[1], set_labels[1],
@@ -551,159 +587,182 @@ def compare_two_sets_against_ground_truth(gt, set1, set2, set_labels=['gt', 'set
     raw_data = (gt_intra, set1_intra, set2_intra, set1_inter_gt, set2_inter_gt, pdf_gt_intra, pdf_set1_inter_gt, pdf_set2_inter_gt)
     return df, raw_data
 
-
-def plot_inter_intra_pdfs(raw_data, fig_path, set_labels, show=True):
+def plot_inter_intra_pdfs(raw_data, fig_path, set_labels, show=True, ncols=4, figsize=(20,20), legend_fs=12, fs=12):
     # raw_data is a tuple of  (gt_intra, set1_intra, set2_intra, set1_inter_gt, set2_inter_gt, pdf_gt_intra, pdf_set1_inter_gt, pdf_set2_inter_gt)
 
     gt_intra, set1_intra, set2_intra, set1_inter_gt, set2_inter_gt, pdf_gt_intra, pdf_set1_inter_gt, pdf_set2_inter_gt = raw_data
     pdf_set1_intra = convert_multi_feature_distances_to_pdf(set1_intra)
     pdf_set2_intra = convert_multi_feature_distances_to_pdf(set2_intra)
 
-    num_sample = 100
-    for i, key in enumerate(gt_intra.keys()):
+    n_plots = len(list(gt_intra.keys()))
+    nrows = int(np.ceil(n_plots / ncols))
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharey=False)
 
+    num_sample = 1000
+    for i, key in tqdm(enumerate(gt_intra.keys())):
+        handles = []
+        labels = []
+        if nrows == 1 and ncols == 1:
+            ax_ = axes
+        elif nrows == 1:
+            ax_ = axes[(i % ncols)]
+        elif ncols == 1:
+            ax_ = axes[(i // ncols)]
+        else:
+            ax_ = axes[(i // ncols)][(i % ncols)]
 
         x = np.linspace(np.min(set1_intra[key]), np.max(set1_intra[key]), num_sample)
         y1 = pdf_set1_intra[key](x)
-        plt.plot(x, y1, c='b', label=f"Intra Distance ({set_labels[1]})", linestyle='dashed')
+        h, = ax_.plot(x, y1, c='b', label=f"Intra Distance ({set_labels[1]})", linestyle='dashed')
+        handles.append(h)
+        labels.append(f"Intra Distance ({set_labels[1]})")
         x = np.linspace(np.min(set1_inter_gt[key]), np.max(set1_inter_gt[key]), num_sample)
         y2 = pdf_set1_inter_gt[key](x)
-        plt.plot(x, y2, c='b', label=f"Inter Distance ({set_labels[1]}, {set_labels[0]})", linestyle='solid')
+        h, = ax_.plot(x, y2, c='b', label=f"Inter Distance ({set_labels[1]}, {set_labels[0]})", linestyle='solid')
+        handles.append(h)
+        labels.append(f"Inter Distance ({set_labels[1]}, {set_labels[0]})")
 
         x = np.linspace(np.min(set2_intra[key]), np.max(set2_intra[key]), num_sample)
-        plt.plot(x, pdf_set2_intra[key](x), c='c', label=f"Intra Distance ({set_labels[2]})", linestyle='dashed')
+        h, = ax_.plot(x, pdf_set2_intra[key](x), c='c', label=f"Intra Distance ({set_labels[2]})", linestyle='dashed')
+        handles.append(h)
+        labels.append(f"Intra Distance ({set_labels[2]})")
         x = np.linspace(np.min(set2_inter_gt[key]), np.max(set2_inter_gt[key]), num_sample)
-        plt.plot(x, pdf_set2_inter_gt[key](x), c='c', label=f"Inter Distance ({set_labels[2]}, {set_labels[0]})", linestyle='solid')
+        h, = ax_.plot(x, pdf_set2_inter_gt[key](x), c='c', label=f"Inter Distance ({set_labels[2]}, {set_labels[0]})", linestyle='solid')
+        handles.append(h)
+        labels.append(f"Inter Distance ({set_labels[2]}, {set_labels[0]})")
 
         x = np.linspace(np.min(gt_intra[key]), np.max(gt_intra[key]), num_sample)
-        plt.plot(x, pdf_gt_intra[key](x), c='r', label=f"Intra Distance ({set_labels[0]})", linestyle='dashdot', linewidth=2)
+        h, = ax_.plot(x, pdf_gt_intra[key](x), c='r', label=f"Intra Distance ({set_labels[0]})", linestyle='dashdot', linewidth=2)
+        handles.append(h)
+        labels.append(f"Intra Distance ({set_labels[0]})")
 
-        plt.legend(loc='upper right', prop={'size': 9})
+        ax_.legend(handles, labels, loc='upper right', prop={'size': legend_fs})
 
-        title = key.split("::")[-1]
-        plt.title(f"{title}", fontsize=12)
-        plt.xlabel("Euclidean Distance", fontsize=12)
-        plt.ylabel("Density", fontsize=12)
+        type_key = key.split("::")[0]
+        title = key.split("::")[-1] if  type_key is 'Statistical' else key
+        ax_.set_title(f"{title}", fontsize=fs)
+        ax_.set_xlabel("Euclidean Distance", fontsize=fs)
+        ax_.set_ylabel("Density", fontsize=fs)
 
-        if fig_path is not None:
-            path = os.path.join(fig_path, "plots")
-            os.makedirs(path , exist_ok=True)
-            filename = os.path.join(path, f"{title}_{set_labels[0]}_{set_labels[1]}_{set_labels[2]}")
-            plt.savefig(filename)
-
-
-
-        if show is True:
-            plt.show()
-
-        plt.cla()
-
-def plot_intersets(analysis_dataframe, fig_path, set_labels, show=False):
-    df = analysis_dataframe
-
-    cmap = get_cmap(df.index.size, name="Dark2")
-    lines = ["-", ":", "-", "--", "-", "-."]
-    linecycler = cycle(lines)
-
-    for i, index in enumerate(df.index):
-        if index not in ["Statistical::NoI"]:
-            x1 = df[(set_labels[1], 'Inter-set', 'KL')][index]
-            y1 = df[(set_labels[1], 'Inter-set', 'OA')][index]
-            x2 = df[(set_labels[2], 'Inter-set', 'KL')][index]
-            y2 = df[(set_labels[2], 'Inter-set', 'OA')][index]
-            plt.scatter(x1, y1, c=cmap(i), marker="^")
-            plt.scatter(x2, y2, c=cmap(i), marker="s")
-            plt.plot([x1, x2], [y1, y2], c=cmap(i), label=index.split("::")[-1],
-                     linestyle=next(linecycler))  # , linewidth=.3*(i+1))
-            plt.legend(loc='upper right', prop={'size': 9})
-            plt.xlabel("KL", fontsize=12)
-            plt.ylabel("OA", fontsize=12)
-
-    plt.scatter(0, 1, marker="^")
-    plt.text(0.005, .997, f"Interset({set_labels[1]}, {set_labels[0]}) ")
-    plt.scatter(0, 0.98, marker="s")
-    plt.text(0.005, .977, f"Interset({set_labels[2]}, {set_labels[0]})")
-    plt.title(f"Interset Distances compared against Intraset Distances of {set_labels[0].upper()}", fontsize=12)
+        for label in ax_.get_yticklabels():
+          label.set_fontsize(fs * .75)
+        for label in ax_.get_xticklabels():
+          label.set_fontsize(fs * .75)
 
     if fig_path is not None:
-        os.makedirs(fig_path, exist_ok=True)
-        filename = os.path.join(fig_path, f"inter({set_labels[1]},{set_labels[0]})_inter({set_labels[2]},{set_labels[0]})_vs_Intra({set_labels[0]})")
+        path = os.path.join(fig_path, "plots")
+        os.makedirs(path , exist_ok=True)
+        filename = os.path.join(path, f"{title}_{set_labels[0]}_{set_labels[1]}_{set_labels[2]}")
         plt.savefig(filename)
 
     if show is True:
         plt.show()
 
-    plt.cla()
-
-if __name__ == '__main__':
-
-    # Compile data (flatten styles)
-    sets = {
-        "gmd": flatten_subset_genres(get_gt_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_misunderstood-bush-246_Epoch_26.Eval","rb")))),
-        "hopeful": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_hopeful-gorge-252_Epoch_90.Eval","rb")))),
-        "misunderstood": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_misunderstood-bush-246_Epoch_26.Eval", "rb")))),
-        "rosy": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_rosy-durian-248_Epoch_26.Eval", "rb")))),
-        "solar": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_solar-shadow-247_Epoch_41.Eval", "rb")))),
-        "groovae": flatten_subset_genres(get_pd_feats_from_evaluator(pickle.load(open(
-            f"post_processing_scripts/evaluators_monotonic_groove_transformer_v1/"
-            f"validation_set_evaluator_run_groovae.Eval", "rb")))),
-    }
-
-    # ================================================================
-    # ---- Absolute Measures According to
-    # Yang, Li-Chia, and Alexander Lerch. "On the evaluation of generative models in music."
-    #           Neural Computing and Applications 32.9 (2020): 4773-4784.
-    # ================================================================
-
-    # Compile Absolute Measures
-    csv_path = "post_processing_scripts/evaluators_monotonic_groove_transformer_v1/mgeval_results/absolute_measures.csv"
-    get_absolute_measures_for_multiple_sets(sets, csv_file=csv_path)
-
-    # ================================================================
-    # Intra_set Calculations according to
-    # Yang, Li-Chia, and Alexander Lerch. "On the evaluation of generative models in music."
-    #           Neural Computing and Applications 32.9 (2020): 4773-4784.
-    # ================================================================
-    gmd = get_intraset_distances_from_set(sets["gmd"])
-    misunderstood = get_intraset_distances_from_set(sets["misunderstood"])
-    groovae = get_intraset_distances_from_set(sets["groovae"])
-
-    # ================================================================
-    # Inter_set Calculations according to
-    # Yang, Li-Chia, and Alexander Lerch. "On the evaluation of generative models in music."
-    #           Neural Computing and Applications 32.9 (2020): 4773-4784.
-    #
-    # misunderstood_gmd_interset = get_interset_distances(sets["misunderstood"], sets["gmd"])
-    # ================================================================
+    return fig, axes
 
 
+def plot_intersets(analysis_dataframe, fig_path, set_labels, set1_name='First Model', set2_name='Second Model',
+                   show=False, ncols=2, figsize=(20, 10), max_features_in_plot=7, legend_fs=6, fs=8, add_legend=False,
+                   add_text=True, min_line_len_for_text=1, legend_ncols=1, force_xlim=None, force_ylim=None):
+
+    df = analysis_dataframe
+
+    cmap = get_cmap(max_features_in_plot, name="Dark2")
+    lines = ['-', '--', '-.', ':']
+    linecycler = cycle(lines)
+
+    nfeatures = len(analysis_dataframe.index)
+    nplots = int(np.ceil(nfeatures/max_features_in_plot))
+    ncols = min(ncols, nplots)
+    nrows = int(np.ceil(nplots/ncols))
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharey=False, sharex=True)
+
+    handles, labels = [], []
+
+    for i, index in tqdm(enumerate(df.index)):
 
 
+        handles = [] if i % max_features_in_plot == 0 else handles
+        labels = [] if i % max_features_in_plot == 0 else labels
+        ax_ = None
 
+        if nrows > 1 and ncols>1:
+            print([i//(ncols*max_features_in_plot)], [i//max_features_in_plot])
+            row_ix = i//(ncols*max_features_in_plot)
+            ax_ = axes[row_ix][i//(max_features_in_plot)//nrows]
+        if nrows == 1 and ncols == 1:
+            ax_ = axes
+        if nrows > 1 and ncols == 1:
+            ax_ = axes[i//(ncols*max_features_in_plot)]
+        if nrows == 1 and ncols > 1:
+            ax_ = axes[i//max_features_in_plot]
 
-    '''#sets["gmd"]
-    pdf_a = stats.gaussian_kde(groovae, bw_method='scott')
-    sample_A = np.linspace(np.min(groovae), np.max(groovae), 100)
-    pdf_a(sample_A)
-    plt.plot(sample_A, pdf_a(sample_A))
-    plt.show()
+        x1 = df[(set_labels[1], 'Inter-set', 'KL')][index]
+        y1 = df[(set_labels[1], 'Inter-set', 'OA')][index]
+        x2 = df[(set_labels[2], 'Inter-set', 'KL')][index]
+        y2 = df[(set_labels[2], 'Inter-set', 'OA')][index]
 
+        ax_.scatter(x1, y1, c=cmap(i % max_features_in_plot), marker="^")
+        ax_.scatter(x2, y2, c=cmap(i % max_features_in_plot), marker="s")
 
+        if add_text is True:
+            if ((x2-x1)**2-(y2-y1)**2)**0.5 >= min_line_len_for_text:
+                dy = (y2 - y1)
+                dx = (x2 - x1)
+                right_point = (x1, y1) if x1 > x2 else (x2, y2)
+                center_point = ((x1+x2)/2, (y1+y2)/2)
+                center_point = ((right_point[0]+center_point[0])/2, (right_point[1]+center_point[1])/2)
+                center_point = ((right_point[0] + center_point[0]) / 2, (right_point[1] + center_point[1]) / 2)
+                loc = ((right_point[0] + center_point[0]) / 2, (right_point[1] + center_point[1]) / 2)
+                rotn = np.degrees(np.arctan2(dy, dx))
+                rotn = (rotn + 180.0) if 90 < rotn < 270 else rotn
 
-    kl = kl_dist(misunderstood, gmd, num_sample=100)
-    oa = overlap_area(misunderstood, gmd)
-    print('misunderstoon and gmd', kl, oa)
+                ax_.text(*right_point, index.split("::")[-1], c=cmap(i % max_features_in_plot), fontsize=legend_fs)
 
-    kl = kl_dist(groovae, gmd, num_sample=100)
-    oa = overlap_area(groovae, gmd)
-    print('groovae and gmd', kl, oa)'''
+        h_, = ax_.plot([x1, x2], [y1, y2], c=cmap(i % max_features_in_plot), label=index.split("::")[-1],
+                 linestyle=next(linecycler))  # , linewidth=.3*(i+1))
+
+        handles.append(h_)
+        labels.append(index.split("::")[-1] if index.split("::")[0]=="Statistical" else index.replace("::", " "))
+
+        if add_legend is True:
+            ax_.legend(handles, labels, loc='lower right', prop={'size': legend_fs}, mode="expand", ncol=legend_ncols)
+
+        ax_.set_xlabel("KL", fontsize=fs)
+        ax_.set_ylabel("OA", fontsize=fs)
+
+    if ncols > 1 and nrows > 1 :
+        for ax in axes:
+            y_min, y_max = ax.get_ylim()
+            x_min, x_max = ax.get_xlim()
+            if add_legend is True:
+                ax.set_xlim(x_min - 0.1 * (x_max - x_min), max(x_max * 1.2, 1))
+                ax.set_ylim(y_min - 1 * (y_max - y_min), min(y_max* 1.2, 1.1) )
+    else:
+        ax = axes
+        y_min, y_max = ax.get_ylim()
+        x_min, x_max = ax.get_xlim()
+        if add_legend is True:
+            ax.set_xlim(x_min - 0.1 * (x_max - x_min), x_max * 1.2)
+            ax.set_ylim(y_min - 1 * (y_max - y_min), min(y_max * 1.2, 1.1))
+
+    if force_xlim is not None:
+        ax.set_xlim(force_xlim[0], force_xlim[1])
+    if force_ylim is not None:
+        ax.set_ylim(force_ylim[0], force_ylim[1])
+
+    fig.suptitle(r'$\bigtriangleup$' + "  " + f"{set1_name}" + "    " + r'$\boxdot$' + "  " + f"{set2_name}",
+                 fontsize=20)
+
+    if fig_path is not None:
+        os.makedirs(fig_path, exist_ok=True)
+        now = datetime.now()
+        time_txt = f"{now.day}_{now.month}_{now.year}-{now.hour}-{now.min}-{now.second}"
+        filename = os.path.join(fig_path, f"inter({set_labels[1]},{set_labels[0]})_inter({set_labels[2]},{set_labels[0]})_vs_Intra({set_labels[0]})_at_{time_txt}")
+        fig.savefig(filename)
+
+    if show is True:
+        fig.show()
+
+    return fig, axes
